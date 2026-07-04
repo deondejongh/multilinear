@@ -1,0 +1,47 @@
+{
+  "name": "@multilinear/core",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./model": {
+      "types": "./src/Model.ts",
+      "import": "./src/Model.ts"
+    },
+    "./events": {
+      "types": "./src/Events.ts",
+      "import": "./src/Events.ts"
+    },
+    "./commands": {
+      "types": "./src/Commands.ts",
+      "import": "./src/Commands.ts"
+    },
+    "./api": {
+      "types": "./src/Api.ts",
+      "import": "./src/Api.ts"
+    },
+    "./context-pack": {
+      "types": "./src/ContextPack.ts",
+      "import": "./src/ContextPack.ts"
+    },
+    "./ulid": {
+      "types": "./src/Ulid.ts",
+      "import": "./src/Ulid.ts"
+    },
+    "./store": {
+      "types": "./src/Store.ts",
+      "import": "./src/Store.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit",
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@effect/vitest": "catalog:",
+    "@types/node": "catalog:",
+    "vite-plus": "catalog:"
+  }
+}
