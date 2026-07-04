@@ -13,6 +13,7 @@ import {
   IssueType,
   LabelId,
   Priority,
+  ProofId,
   RelationId,
   RelationKindInput,
   RunLinkId,
@@ -21,6 +22,7 @@ import {
   StatusId,
   TrimmedNonEmptyString,
 } from "./Model.ts";
+import { ProofOfWork } from "./Proof.ts";
 
 export const CreateSpace = Schema.Struct({
   type: Schema.Literal("space.create"),
@@ -108,6 +110,41 @@ export const AddRunLink = Schema.Struct({
   ref: TrimmedNonEmptyString,
 });
 
+/** Attach proof of work (03-PHASE-2 §B). */
+export const AttachProof = Schema.Struct({
+  type: Schema.Literal("proof.attach"),
+  proofId: ProofId,
+  issueId: IssueId,
+  proof: ProofOfWork,
+});
+
+/**
+ * Ask for human input (03-PHASE-2 §A): posts the question as a comment and
+ * marks the issue Agent Blocked. Agent actors only.
+ */
+export const RequestInput = Schema.Struct({
+  type: Schema.Literal("input.request"),
+  issueId: IssueId,
+  commentId: CommentId,
+  question: TrimmedNonEmptyString,
+});
+
+/** Confirm or reject a pending duplicate proposal. Human actors only. */
+export const ResolveDuplicate = Schema.Struct({
+  type: Schema.Literal("duplicate.resolve"),
+  issueId: IssueId,
+  accept: Schema.Boolean,
+});
+
+/** Record cost for work on an issue (03-PHASE-2 §A `ml_log_cost`). */
+export const LogCost = Schema.Struct({
+  type: Schema.Literal("cost.log"),
+  issueId: IssueId,
+  tokens: Schema.optional(Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))),
+  currencyAmount: Schema.optional(Schema.Number.check(Schema.isGreaterThanOrEqualTo(0))),
+  note: Schema.optional(Schema.String),
+});
+
 export const TrackerCommand = Schema.Union([
   CreateSpace,
   CreateIssue,
@@ -120,6 +157,10 @@ export const TrackerCommand = Schema.Union([
   AddRelation,
   RemoveRelation,
   AddRunLink,
+  AttachProof,
+  RequestInput,
+  ResolveDuplicate,
+  LogCost,
 ]);
 export type TrackerCommand = typeof TrackerCommand.Type;
 

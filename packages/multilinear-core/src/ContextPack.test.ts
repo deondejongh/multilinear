@@ -90,8 +90,8 @@ describe("buildContextPack", () => {
       assert.include(pack, "## Description\nColumns follow category order.");
       assert.include(pack, "## Relevant relations");
       assert.include(pack, "- Blocked by: MLT-1 — Ship the store");
-      assert.include(pack, "## Recent discussion");
-      assert.include(pack, "- human:deon — Use the upstream UI kit.");
+      assert.include(pack, "## Discussion");
+      assert.include(pack, "> **human:deon**\n> Use the upstream UI kit.");
       assert.include(pack, "Work only on this issue.");
     }).pipe(Effect.provide(TrackerStore.layerMemory)),
   );
@@ -129,14 +129,63 @@ describe("buildContextPack", () => {
       }
 
       const detail = yield* store.getIssue(issueId);
-      const pack = buildContextPack(detail, { maxComments: 2 });
+      const pack = buildContextPack(detail, { maxVerbatimComments: 2 });
 
       assert.include(pack, "Labels: none");
       assert.include(pack, "(no description)");
       assert.notInclude(pack, "## Relevant relations");
-      // Newest last, capped at two.
-      assert.notInclude(pack, "comment 2");
-      assert.include(pack, "comment 3\n- human:deon — comment 4");
+      // Older comments compact to one-liners; the last two stay verbatim.
+      assert.include(pack, "Earlier discussion, summarized (3 comments):");
+      assert.include(pack, "- human:deon — comment 0");
+      assert.notInclude(pack, "> comment 2");
+      assert.include(pack, "> comment 3");
+      assert.include(pack, "> comment 4");
+    }).pipe(Effect.provide(TrackerStore.layerMemory)),
+  );
+
+  it.effect("a profile's prompt template wraps the briefing (v2)", () =>
+    Effect.gen(function* () {
+      const store = yield* TrackerStore;
+      const ids = makeIds();
+      const spaceId = ids.next() as SpaceId;
+      yield* store.execute({ type: "space.create", spaceId, name: "Solo", key: "SOL" }, human);
+      const issueId = ids.next() as IssueId;
+      yield* store.execute(
+        {
+          type: "issue.create",
+          issueId,
+          spaceId,
+          title: "Wrapped issue",
+          description: "",
+          priority: 0,
+          issueType: "work",
+          labelIds: [],
+        },
+        human,
+      );
+      const detail = yield* store.getIssue(issueId);
+
+      const base = {
+        name: "implementer",
+        intent: "implement",
+        trustTier: "workspace_write",
+        allowedTransitions: [],
+        sourcePath: "/tmp/implementer.md",
+      } as const;
+
+      // Without a placeholder the briefing is appended after a separator.
+      const appended = buildContextPack(detail, {
+        profile: { ...base, body: "You are the implementer." },
+      });
+      assert.isTrue(appended.startsWith("You are the implementer.\n\n---\n\n# Issue SOL-1"));
+
+      // With the placeholder the briefing lands exactly there.
+      const placed = buildContextPack(detail, {
+        profile: { ...base, body: "Before.\n\n{{CONTEXT_PACK}}\n\nAfter." },
+      });
+      assert.include(placed, "Before.\n\n# Issue SOL-1");
+      assert.include(placed, "Work only on this issue.");
+      assert.isTrue(placed.trimEnd().endsWith("After."));
     }).pipe(Effect.provide(TrackerStore.layerMemory)),
   );
 });

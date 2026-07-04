@@ -1,83 +1,9 @@
 import { assert, describe, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 
-import type { TrackerCommand } from "./Commands.ts";
-import type {
-  Actor,
-  CommentId,
-  IssueId,
-  LabelId,
-  RelationId,
-  RunLinkId,
-  SpaceId,
-  StatusId,
-} from "./Model.ts";
+import type { CommentId, IssueId, LabelId, RelationId, RunLinkId, SpaceId } from "./Model.ts";
 import { TrackerStore } from "./Store.ts";
-import { makeUlidGenerator } from "./Ulid.ts";
-
-const human: Actor = { kind: "human", id: "deon" };
-const agent: Actor = { kind: "agent", id: "codex-profile" };
-
-/** Deterministic caller-side id factory (ids are ULIDs, unique per call). */
-const makeIds = () => {
-  let counter = 0;
-  const generator = makeUlidGenerator((bytes) => {
-    counter += 1;
-    bytes.fill(0);
-    bytes[8] = Math.floor(counter / 256);
-    bytes[9] = counter % 256;
-  });
-  return { next: () => generator.next(1_700_000_000_000) };
-};
-
-interface Fixture {
-  readonly store: TrackerStore["Service"];
-  readonly ids: ReturnType<typeof makeIds>;
-  readonly spaceId: SpaceId;
-  readonly triageStatusId: StatusId;
-  readonly statusIdFor: (category: string) => StatusId;
-}
-
-/** Create a store with one space (statuses seeded 1:1 with categories). */
-const setup = Effect.fnUntraced(function* () {
-  const store = yield* TrackerStore;
-  const ids = makeIds();
-  const spaceId = ids.next() as SpaceId;
-  yield* store.execute({ type: "space.create", spaceId, name: "Multilinear", key: "MLT" }, human);
-  const statuses = yield* store.listStatuses(spaceId);
-  const statusIdFor = (category: string): StatusId => {
-    const status = statuses.find((candidate) => candidate.category === category);
-    if (status === undefined) throw new Error(`no status for category ${category}`);
-    return status.id;
-  };
-  return { store, ids, spaceId, triageStatusId: statusIdFor("triage"), statusIdFor };
-});
-
-const createIssue = (
-  fixture: Fixture,
-  overrides?: Partial<Extract<TrackerCommand, { type: "issue.create" }>>,
-) => {
-  const issueId = fixture.ids.next() as IssueId;
-  return fixture.store
-    .execute(
-      {
-        type: "issue.create",
-        issueId,
-        spaceId: fixture.spaceId,
-        title: "An issue",
-        description: "",
-        priority: 0,
-        issueType: "work",
-        labelIds: [],
-        ...overrides,
-      },
-      human,
-    )
-    .pipe(Effect.map(() => issueId));
-};
-
-const provided = <A, E>(effect: Effect.Effect<A, E, TrackerStore>) =>
-  effect.pipe(Effect.provide(TrackerStore.layerMemory));
+import { agent, createIssue, human, provided, setup } from "./TestSupport.ts";
 
 describe("TrackerStore", () => {
   describe("command validation", () => {
@@ -179,17 +105,17 @@ describe("TrackerStore", () => {
       ),
     );
 
-    it.effect("agents may make non-done transitions", () =>
+    it.effect("agents may make whitelisted transitions", () =>
       provided(
         Effect.gen(function* () {
           const fixture = yield* setup();
           const issueId = yield* createIssue(fixture);
           yield* fixture.store.execute(
-            { type: "status.change", issueId, statusId: fixture.statusIdFor("in_progress") },
+            { type: "status.change", issueId, statusId: fixture.statusIdFor("backlog") },
             agent,
           );
           const detail = yield* fixture.store.getIssue(issueId);
-          assert.strictEqual(detail.status.category, "in_progress");
+          assert.strictEqual(detail.status.category, "backlog");
         }),
       ),
     );
@@ -557,7 +483,7 @@ describe("TrackerStore", () => {
           const fixture = yield* setup();
           const issueId = yield* createIssue(fixture);
           yield* fixture.store.execute(
-            { type: "status.change", issueId, statusId: fixture.statusIdFor("in_progress") },
+            { type: "status.change", issueId, statusId: fixture.statusIdFor("backlog") },
             agent,
           );
           yield* fixture.store.execute(

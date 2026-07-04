@@ -38,11 +38,16 @@ import {
   type SpaceId,
   STATUS_CATEGORIES,
   type Status,
+  type StatusCategory,
   type StatusId,
   type TrackerEventId,
 } from "./Model.ts";
-import { makeUlidGenerator, type RandomFill } from "./Ulid.ts";
-import type { IssueDetail, IssueFilter, IssueSummary, RelationView } from "./Views.ts";
+import type { ProofOfWork } from "./Proof.ts";
+import { readyGateLint } from "./ReadyGate.ts";
+import { describeFindings, scanPayloadForSecrets } from "./SecretScan.ts";
+import { describeAgentWhitelist, isAgentTransitionAllowed } from "./Transitions.ts";
+import { isUlid, makeUlidGenerator, type RandomFill } from "./Ulid.ts";
+import type { IssueDetail, IssueFilter, IssueSummary, ProofView, RelationView } from "./Views.ts";
 
 export { ImportRejectedError, IssueNotFoundError, TrackerStorageError } from "./Errors.ts";
 
@@ -67,7 +72,17 @@ const PROJECTION_TABLES = [
   "comments",
   "relations",
   "run_links",
+  "proofs",
 ] as const;
+
+/**
+ * Version of the projection-table shapes. Projections are disposable — the
+ * event log is the source of truth — so a schema change here just bumps the
+ * version: on open, a store with an older `PRAGMA user_version` drops its
+ * projection tables and replays the log. The `events` table never changes
+ * shape.
+ */
+const PROJECTION_SCHEMA_VERSION = 2;
 
 const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS events (
@@ -115,6 +130,9 @@ CREATE TABLE IF NOT EXISTS issues (
   assignee TEXT NOT NULL,
   delegate TEXT,
   origin TEXT NOT NULL,
+  agent_blocked INTEGER NOT NULL DEFAULT 0,
+  pending_duplicate_status_id TEXT,
+  in_progress_since_event TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -152,6 +170,16 @@ CREATE TABLE IF NOT EXISTS run_links (
   created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_run_links_issue ON run_links(issue_id);
+CREATE TABLE IF NOT EXISTS proofs (
+  id TEXT PRIMARY KEY,
+  issue_id TEXT NOT NULL,
+  event_id TEXT NOT NULL,
+  actor_kind TEXT NOT NULL,
+  actor_id TEXT NOT NULL,
+  data TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_proofs_issue ON proofs(issue_id);
 `;
 
 const encodeEventJson = Schema.encodeEffect(Schema.fromJsonString(TrackerEvent));
@@ -199,6 +227,14 @@ export class TrackerStore extends Context.Service<
     readonly listIssues: (
       filter: IssueFilter,
     ) => Effect.Effect<ReadonlyArray<IssueSummary>, TrackerStorageError>;
+    /** Issues in `ready` with no open blockers (03-PHASE-2 §A). */
+    readonly listReadyIssues: (
+      spaceId?: SpaceId,
+    ) => Effect.Effect<ReadonlyArray<IssueSummary>, TrackerStorageError>;
+    /** Resolve a short-id (`MLT-7`) or ULID to an issue id, if it exists. */
+    readonly resolveIssueId: (
+      ref: string,
+    ) => Effect.Effect<IssueId | undefined, TrackerStorageError>;
     readonly getIssue: (
       issueId: IssueId,
     ) => Effect.Effect<IssueDetail, IssueNotFoundError | TrackerStorageError>;
@@ -249,6 +285,9 @@ const makeTrackerStore = Effect.fnUntraced(function* (config: TrackerStoreConfig
         database.exec("PRAGMA foreign_keys = ON;");
         if (config.dbPath !== ":memory:") {
           database.exec("PRAGMA journal_mode = WAL;");
+          // Multiple processes share the file (t3code server + standalone
+          // MCP stdio servers); wait out short write locks instead of failing.
+          database.exec("PRAGMA busy_timeout = 5000;");
         }
         database.exec(SCHEMA_SQL);
         return database;
@@ -338,9 +377,22 @@ const makeTrackerStore = Effect.fnUntraced(function* (config: TrackerStoreConfig
       assignee: row.assignee,
       delegate: row.delegate,
       origin: row.origin,
+      agentBlocked: row.agent_blocked === 1,
+      pendingDuplicateStatusId: row.pending_duplicate_status_id,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     }) as Issue;
+
+  const rowToProofView = (row: Row): ProofView =>
+    ({
+      id: row.id,
+      issueId: row.issue_id,
+      actor: { kind: row.actor_kind, id: row.actor_id },
+      // Validated by the ProofOfWork schema when the command was decoded;
+      // the projection stores its plain-JSON form verbatim.
+      proof: JSON.parse(row.data as string) as ProofOfWork,
+      createdAt: row.created_at,
+    }) as ProofView;
 
   const rowToComment = (row: Row): Comment =>
     ({
@@ -396,11 +448,16 @@ const makeTrackerStore = Effect.fnUntraced(function* (config: TrackerStoreConfig
             "SELECT MAX(number) AS max_number FROM issues WHERE space_id = ?",
             event.payload.spaceId,
           )?.max_number as number | null) ?? 0) + 1;
+        const category = get(
+          "SELECT category FROM statuses WHERE id = ?",
+          event.payload.statusId,
+        )?.category;
         runSql(
           `INSERT INTO issues (
             id, space_id, number, title, description, status_id, priority,
-            issue_type, assignee, delegate, origin, created_at, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)`,
+            issue_type, assignee, delegate, origin, in_progress_since_event,
+            created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?)`,
           event.payload.issueId,
           event.payload.spaceId,
           nextNumber,
@@ -411,6 +468,7 @@ const makeTrackerStore = Effect.fnUntraced(function* (config: TrackerStoreConfig
           event.payload.issueType,
           event.actor.kind === "human" ? event.actor.id : "human",
           event.payload.origin,
+          category === "in_progress" ? event.id : null,
           event.ts,
           event.ts,
         );
@@ -442,10 +500,19 @@ const makeTrackerStore = Effect.fnUntraced(function* (config: TrackerStoreConfig
         return;
       }
       case "status.changed": {
+        const category = get(
+          "SELECT category FROM statuses WHERE id = ?",
+          event.payload.toStatusId,
+        )?.category;
+        // A status change also resolves the transient agent flags: the issue
+        // is moving, so a pending question or duplicate proposal is moot.
         runSql(
-          "UPDATE issues SET status_id = ?, updated_at = ? WHERE id = ?",
+          `UPDATE issues SET status_id = ?, updated_at = ?, agent_blocked = 0,
+             pending_duplicate_status_id = NULL, in_progress_since_event = ?
+           WHERE id = ?`,
           event.payload.toStatusId,
           event.ts,
+          category === "in_progress" ? event.id : null,
           event.payload.issueId,
         );
         return;
@@ -489,6 +556,10 @@ const makeTrackerStore = Effect.fnUntraced(function* (config: TrackerStoreConfig
           event.actor.id,
           event.ts,
         );
+        // A human speaking on the issue answers a pending agent question.
+        if (event.actor.kind === "human") {
+          runSql("UPDATE issues SET agent_blocked = 0 WHERE id = ?", event.payload.issueId);
+        }
         bumpIssueUpdatedAt(event.payload.issueId, event.ts);
         return;
       }
@@ -523,6 +594,50 @@ const makeTrackerStore = Effect.fnUntraced(function* (config: TrackerStoreConfig
         bumpIssueUpdatedAt(event.payload.issueId, event.ts);
         return;
       }
+      case "proof.attached": {
+        runSql(
+          `INSERT INTO proofs (id, issue_id, event_id, actor_kind, actor_id, data, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          event.payload.proofId,
+          event.payload.issueId,
+          event.id,
+          event.actor.kind,
+          event.actor.id,
+          JSON.stringify(event.payload.proof),
+          event.ts,
+        );
+        bumpIssueUpdatedAt(event.payload.issueId, event.ts);
+        return;
+      }
+      case "input.requested": {
+        runSql(
+          "UPDATE issues SET agent_blocked = 1, updated_at = ? WHERE id = ?",
+          event.ts,
+          event.payload.issueId,
+        );
+        return;
+      }
+      case "duplicate.proposed": {
+        runSql(
+          "UPDATE issues SET pending_duplicate_status_id = ?, updated_at = ? WHERE id = ?",
+          event.payload.statusId,
+          event.ts,
+          event.payload.issueId,
+        );
+        return;
+      }
+      case "duplicate.resolved": {
+        runSql(
+          "UPDATE issues SET pending_duplicate_status_id = NULL, updated_at = ? WHERE id = ?",
+          event.ts,
+          event.payload.issueId,
+        );
+        return;
+      }
+      case "cost.recorded": {
+        // Feed-only for now (STATUS: Phase 2 decision) — no projection table.
+        return;
+      }
     }
   };
 
@@ -530,6 +645,26 @@ const makeTrackerStore = Effect.fnUntraced(function* (config: TrackerStoreConfig
 
   const reject = (command: TrackerCommand, reason: string) =>
     Effect.fail(new CommandRejectedError({ command: command.type, reason }));
+
+  /**
+   * Invariant 5 (01 §7): scan text/payloads from automated actors for
+   * secret-shaped values and refuse before anything persists. Humans are
+   * exempt — the accountable operator is not locked out by a false positive.
+   */
+  const rejectSecrets = Effect.fnUntraced(function* (
+    command: TrackerCommand,
+    actor: Actor,
+    payload: unknown,
+  ) {
+    if (actor.kind === "human") return;
+    const findings = scanPayloadForSecrets(payload);
+    if (findings.length > 0) {
+      return yield* reject(
+        command,
+        `possible secret detected — redact and retry: ${describeFindings(findings)}. Describe secrets, never paste their values`,
+      );
+    }
+  });
 
   const requireIssue = Effect.fnUntraced(function* (command: TrackerCommand, issueId: string) {
     const issue = get("SELECT * FROM issues WHERE id = ?", issueId);
@@ -669,10 +804,64 @@ const makeTrackerStore = Effect.fnUntraced(function* (config: TrackerStoreConfig
         if (issue.status_id === command.statusId) {
           return yield* reject(command, "issue is already in that status");
         }
+        const toCategory = status.category as StatusCategory;
         // Invariant 2 (01 §7): only a human action may move an issue into
         // the `done` category. Enforced here, not in UI or prompts.
-        if (status.category === "done" && actor.kind !== "human") {
+        if (toCategory === "done" && actor.kind !== "human") {
           return yield* reject(command, "only a human may move an issue into the done category");
+        }
+        // Invariant 3 (01 §7): agent transitions are whitelist-only
+        // (03-PHASE-2 §C), enforced here — never by prompt politeness.
+        if (actor.kind === "agent") {
+          const fromCategory = get(
+            "SELECT category FROM statuses WHERE id = ?",
+            issue.status_id as string,
+          )?.category as StatusCategory;
+          if (toCategory === "duplicate") {
+            // Proposal only: a pending flag the human confirms, never a
+            // status change by the agent itself.
+            if (issue.pending_duplicate_status_id !== null) {
+              return yield* reject(command, "a duplicate proposal is already pending");
+            }
+            drafts.push({
+              type: "duplicate.proposed",
+              issueId: command.issueId,
+              payload: { issueId: command.issueId, statusId: command.statusId },
+            });
+            return drafts;
+          }
+          if (!isAgentTransitionAllowed(fromCategory, toCategory)) {
+            return yield* reject(
+              command,
+              `agent actors may not transition ${fromCategory}->${toCategory}; allowed: ${describeAgentWhitelist()} (a move to duplicate becomes a proposal for the human to confirm)`,
+            );
+          }
+          if (toCategory === "ready") {
+            const gate = readyGateLint(issue.description as string);
+            if (!gate.ok) {
+              return yield* reject(
+                command,
+                `Ready gate failed: ${gate.problems.join("; ")}. Add acceptance criteria to the description first — agent actors cannot override the gate`,
+              );
+            }
+          }
+          if (toCategory === "needs_review") {
+            // Proof of work required since the issue entered in_progress
+            // (03-PHASE-2 §B). Event ids are ULIDs, so lexicographic order
+            // is chronological.
+            const since = (issue.in_progress_since_event as string | null) ?? "";
+            const proof = get(
+              "SELECT id FROM proofs WHERE issue_id = ? AND event_id > ? LIMIT 1",
+              command.issueId,
+              since,
+            );
+            if (proof === undefined) {
+              return yield* reject(
+                command,
+                "attach proof of work (ml_attach_proof) before moving to needs_review",
+              );
+            }
+          }
         }
         drafts.push({
           type: "status.changed",
@@ -765,6 +954,7 @@ const makeTrackerStore = Effect.fnUntraced(function* (config: TrackerStoreConfig
         if (get("SELECT id FROM comments WHERE id = ?", command.commentId) !== undefined) {
           return yield* reject(command, `comment ${command.commentId} already exists`);
         }
+        yield* rejectSecrets(command, actor, command.body);
         drafts.push({
           type: "comment.added",
           issueId: command.issueId,
@@ -836,6 +1026,113 @@ const makeTrackerStore = Effect.fnUntraced(function* (config: TrackerStoreConfig
             issueId: command.issueId,
             kind: command.kind,
             ref: command.ref,
+          },
+        });
+        return drafts;
+      }
+
+      case "proof.attach": {
+        yield* requireIssue(command, command.issueId);
+        if (get("SELECT id FROM proofs WHERE id = ?", command.proofId) !== undefined) {
+          return yield* reject(command, `proof ${command.proofId} already exists`);
+        }
+        yield* rejectSecrets(command, actor, command.proof);
+        drafts.push({
+          type: "proof.attached",
+          issueId: command.issueId,
+          payload: {
+            proofId: command.proofId,
+            issueId: command.issueId,
+            proof: command.proof,
+          },
+        });
+        return drafts;
+      }
+
+      case "input.request": {
+        // Agent Blocked is an agent-actor signal (03-PHASE-2 §A); humans and
+        // rules speak through comments and status changes.
+        if (actor.kind !== "agent") {
+          return yield* reject(command, "only agent actors may request human input");
+        }
+        yield* requireIssue(command, command.issueId);
+        if (get("SELECT id FROM comments WHERE id = ?", command.commentId) !== undefined) {
+          return yield* reject(command, `comment ${command.commentId} already exists`);
+        }
+        yield* rejectSecrets(command, actor, command.question);
+        drafts.push({
+          type: "comment.added",
+          issueId: command.issueId,
+          payload: {
+            commentId: command.commentId,
+            issueId: command.issueId,
+            body: command.question,
+          },
+        });
+        drafts.push({
+          type: "input.requested",
+          issueId: command.issueId,
+          causeIsBatchRoot: true,
+          payload: {
+            issueId: command.issueId,
+            commentId: command.commentId,
+            question: command.question,
+          },
+        });
+        return drafts;
+      }
+
+      case "duplicate.resolve": {
+        if (actor.kind !== "human") {
+          return yield* reject(command, "only a human may resolve a duplicate proposal");
+        }
+        const issue = yield* requireIssue(command, command.issueId);
+        const pendingStatusId = issue.pending_duplicate_status_id as string | null;
+        if (pendingStatusId === null) {
+          return yield* reject(command, "no duplicate proposal is pending on this issue");
+        }
+        drafts.push({
+          type: "duplicate.resolved",
+          issueId: command.issueId,
+          payload: { issueId: command.issueId, accepted: command.accept },
+        });
+        if (command.accept) {
+          drafts.push({
+            type: "status.changed",
+            issueId: command.issueId,
+            causeIsBatchRoot: true,
+            payload: {
+              issueId: command.issueId,
+              fromStatusId: issue.status_id as StatusId,
+              toStatusId: pendingStatusId as StatusId,
+            },
+          });
+        }
+        return drafts;
+      }
+
+      case "cost.log": {
+        yield* requireIssue(command, command.issueId);
+        if (
+          command.tokens === undefined &&
+          command.currencyAmount === undefined &&
+          (command.note === undefined || command.note.trim() === "")
+        ) {
+          return yield* reject(command, "nothing to record: provide tokens, an amount, or a note");
+        }
+        if (command.note !== undefined) {
+          yield* rejectSecrets(command, actor, command.note);
+        }
+        drafts.push({
+          type: "cost.recorded",
+          issueId: command.issueId,
+          payload: {
+            issueId: command.issueId,
+            ...(command.tokens !== undefined ? { tokens: command.tokens } : {}),
+            ...(command.currencyAmount !== undefined
+              ? { currencyAmount: command.currencyAmount }
+              : {}),
+            ...(command.note !== undefined ? { note: command.note } : {}),
           },
         });
         return drafts;
@@ -940,6 +1237,44 @@ const makeTrackerStore = Effect.fnUntraced(function* (config: TrackerStoreConfig
     return map;
   };
 
+  /** Shared summary query: WHERE conditions over `i` / `st` / `sp` aliases. */
+  const queryIssueSummaries = (
+    conditions: ReadonlyArray<string>,
+    params: ReadonlyArray<SqlValue>,
+  ): ReadonlyArray<IssueSummary> => {
+    const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+    const rows = all(
+      `SELECT i.*, st.category AS category, sp.key AS space_key
+       FROM issues i
+       JOIN statuses st ON st.id = i.status_id
+       JOIN spaces sp ON sp.id = i.space_id
+       ${where}
+       ORDER BY i.updated_at DESC, i.id DESC`,
+      ...params,
+    );
+    const labels = labelsByIssue(rows.map((row) => row.id as string));
+    return rows.map(
+      (row): IssueSummary =>
+        ({
+          id: row.id,
+          spaceId: row.space_id,
+          spaceKey: row.space_key,
+          number: row.number,
+          shortId: shortIdOf(row.space_key as string, row.number as number),
+          title: row.title,
+          statusId: row.status_id,
+          category: row.category,
+          priority: row.priority,
+          issueType: row.issue_type,
+          labels: labels.get(row.id as string) ?? [],
+          agentBlocked: row.agent_blocked === 1,
+          pendingDuplicate: row.pending_duplicate_status_id !== null,
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
+        }) as unknown as IssueSummary,
+    );
+  };
+
   const listIssues = Effect.fn("TrackerStore.listIssues")(function* (filter: IssueFilter) {
     return yield* run("list-issues", () => {
       const conditions: string[] = [];
@@ -964,35 +1299,60 @@ const makeTrackerStore = Effect.fnUntraced(function* (config: TrackerStoreConfig
         );
         params.push(filter.search.trim(), filter.search.trim());
       }
-      const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-      const rows = all(
-        `SELECT i.*, st.category AS category, sp.key AS space_key
-         FROM issues i
-         JOIN statuses st ON st.id = i.status_id
-         JOIN spaces sp ON sp.id = i.space_id
-         ${where}
-         ORDER BY i.updated_at DESC, i.id DESC`,
-        ...params,
+      if (filter.agentBlocked !== undefined) {
+        conditions.push("i.agent_blocked = ?");
+        params.push(filter.agentBlocked ? 1 : 0);
+      }
+      return queryIssueSummaries(conditions, params);
+    });
+  });
+
+  /**
+   * "Ready to pick up" (03-PHASE-2 §A `ml_list_ready`): category `ready` with
+   * no open blockers — a blocking issue is open unless it has reached
+   * `done`, `cancelled`, or `duplicate`.
+   */
+  const listReadyIssues = Effect.fn("TrackerStore.listReadyIssues")(function* (spaceId?: SpaceId) {
+    return yield* run("list-ready-issues", () => {
+      const conditions = [
+        "st.category = 'ready'",
+        `NOT EXISTS (
+           SELECT 1 FROM relations r
+           JOIN issues blocker ON blocker.id = r.src_id
+           JOIN statuses bst ON bst.id = blocker.status_id
+           WHERE r.kind = 'blocks' AND r.dst_id = i.id
+             AND bst.category NOT IN ('done', 'cancelled', 'duplicate')
+         )`,
+      ];
+      const params: SqlValue[] = [];
+      if (spaceId !== undefined) {
+        conditions.push("i.space_id = ?");
+        params.push(spaceId);
+      }
+      return queryIssueSummaries(conditions, params);
+    });
+  });
+
+  /**
+   * Resolve an issue reference — a short-id like `MLT-7` (case-insensitive)
+   * or a raw ULID — to the issue id, if it exists.
+   */
+  const resolveIssueId = Effect.fn("TrackerStore.resolveIssueId")(function* (ref: string) {
+    return yield* run("resolve-issue-id", () => {
+      const trimmed = ref.trim();
+      if (isUlid(trimmed.toUpperCase())) {
+        const byId = get("SELECT id FROM issues WHERE id = ?", trimmed.toUpperCase());
+        if (byId !== undefined) return byId.id as IssueId;
+      }
+      const match = /^([A-Za-z][A-Za-z0-9]{1,5})-(\d+)$/.exec(trimmed);
+      if (match === null) return undefined;
+      const row = get(
+        `SELECT i.id FROM issues i JOIN spaces sp ON sp.id = i.space_id
+         WHERE sp.key = ? AND i.number = ?`,
+        (match[1] ?? "").toUpperCase(),
+        Number(match[2]),
       );
-      const labels = labelsByIssue(rows.map((row) => row.id as string));
-      return rows.map(
-        (row): IssueSummary =>
-          ({
-            id: row.id,
-            spaceId: row.space_id,
-            spaceKey: row.space_key,
-            number: row.number,
-            shortId: shortIdOf(row.space_key as string, row.number as number),
-            title: row.title,
-            statusId: row.status_id,
-            category: row.category,
-            priority: row.priority,
-            issueType: row.issue_type,
-            labels: labels.get(row.id as string) ?? [],
-            createdAt: row.created_at,
-            updatedAt: row.updated_at,
-          }) as unknown as IssueSummary,
-      );
+      return row === undefined ? undefined : (row.id as IssueId);
     });
   });
 
@@ -1051,6 +1411,10 @@ const makeTrackerStore = Effect.fnUntraced(function* (config: TrackerStoreConfig
         "SELECT * FROM run_links WHERE issue_id = ? ORDER BY created_at, id",
         issue.id,
       ).map(rowToRunLink);
+      const proofs = all(
+        "SELECT * FROM proofs WHERE issue_id = ? ORDER BY created_at, id",
+        issue.id,
+      ).map(rowToProofView);
       return {
         issue,
         shortId: shortIdOf(space.key, issue.number),
@@ -1060,6 +1424,7 @@ const makeTrackerStore = Effect.fnUntraced(function* (config: TrackerStoreConfig
         comments,
         relations,
         runLinks,
+        proofs,
       } satisfies IssueDetail;
     });
   });
@@ -1168,12 +1533,33 @@ const makeTrackerStore = Effect.fnUntraced(function* (config: TrackerStoreConfig
     });
   });
 
+  // Projection-schema migration: replay the log into freshly shaped tables
+  // when the stored version predates this build (see PROJECTION_SCHEMA_VERSION).
+  const storedVersion = yield* run(
+    "read-projection-version",
+    () => (get("PRAGMA user_version")?.user_version as number | undefined) ?? 0,
+  );
+  if (storedVersion < PROJECTION_SCHEMA_VERSION) {
+    yield* run("migrate-projections", () => {
+      for (const table of PROJECTION_TABLES) {
+        db.exec(`DROP TABLE IF EXISTS ${table}`);
+      }
+      db.exec(SCHEMA_SQL);
+    });
+    yield* rebuild();
+    yield* run("write-projection-version", () =>
+      db.exec(`PRAGMA user_version = ${PROJECTION_SCHEMA_VERSION}`),
+    );
+  }
+
   return TrackerStore.of({
     execute,
     listSpaces,
     listStatuses,
     listLabels,
     listIssues,
+    listReadyIssues,
+    resolveIssueId,
     getIssue,
     listIssueEvents,
     listAllEvents,

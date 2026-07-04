@@ -34,6 +34,8 @@ export const RelationId = makeEntityId("RelationId");
 export type RelationId = typeof RelationId.Type;
 export const RunLinkId = makeEntityId("RunLinkId");
 export type RunLinkId = typeof RunLinkId.Type;
+export const ProofId = makeEntityId("ProofId");
+export type ProofId = typeof ProofId.Type;
 export const TrackerEventId = makeEntityId("TrackerEventId");
 export type TrackerEventId = typeof TrackerEventId.Type;
 
@@ -149,6 +151,10 @@ export const Issue = Schema.Struct({
   /** Profile id — Phase 2+; always null in Phase 1. */
   delegate: Schema.NullOr(Schema.String),
   origin: IssueOrigin,
+  /** An agent asked for human input (03-PHASE-2 §A `ml_request_input`); cleared by a human comment or a status change. */
+  agentBlocked: Schema.Boolean,
+  /** An agent proposed this issue is a duplicate; the human confirms or rejects (03-PHASE-2 §C). */
+  pendingDuplicateStatusId: Schema.NullOr(StatusId),
   createdAt: IsoDateTime,
   updatedAt: IsoDateTime,
 });

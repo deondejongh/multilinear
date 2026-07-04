@@ -31,6 +31,26 @@
       "types": "./src/ContextPack.ts",
       "import": "./src/ContextPack.ts"
     },
+    "./proof": {
+      "types": "./src/Proof.ts",
+      "import": "./src/Proof.ts"
+    },
+    "./profile": {
+      "types": "./src/Profile.ts",
+      "import": "./src/Profile.ts"
+    },
+    "./ready-gate": {
+      "types": "./src/ReadyGate.ts",
+      "import": "./src/ReadyGate.ts"
+    },
+    "./secret-scan": {
+      "types": "./src/SecretScan.ts",
+      "import": "./src/SecretScan.ts"
+    },
+    "./transitions": {
+      "types": "./src/Transitions.ts",
+      "import": "./src/Transitions.ts"
+    },
     "./ulid": {
       "types": "./src/Ulid.ts",
       "import": "./src/Ulid.ts"

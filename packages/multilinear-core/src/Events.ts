@@ -16,6 +16,7 @@ import {
   IssueType,
   LabelId,
   Priority,
+  ProofId,
   RelationId,
   RelationKind,
   RunLinkId,
@@ -26,6 +27,7 @@ import {
   TrackerEventId,
   TrimmedNonEmptyString,
 } from "./Model.ts";
+import { ProofOfWork } from "./Proof.ts";
 
 const envelopeFields = {
   id: TrackerEventId,
@@ -128,6 +130,48 @@ export const RunLinked = defineEvent("run.linked", {
   ref: TrimmedNonEmptyString,
 });
 
+/** Proof of work attached (03-PHASE-2 §B); renders as a formatted comment. */
+export const ProofAttached = defineEvent("proof.attached", {
+  proofId: ProofId,
+  issueId: IssueId,
+  proof: ProofOfWork,
+});
+
+/**
+ * An agent asked for human input (03-PHASE-2 §A `ml_request_input`). Marks
+ * the issue Agent Blocked; the question itself lands as a `comment.added`
+ * event in the same batch (`commentId` links them).
+ */
+export const InputRequested = defineEvent("input.requested", {
+  issueId: IssueId,
+  commentId: CommentId,
+  question: TrimmedNonEmptyString,
+});
+
+/**
+ * An agent proposed the issue is a duplicate (03-PHASE-2 §C): a pending flag
+ * a human confirms — never a status change by the agent itself.
+ */
+export const DuplicateProposed = defineEvent("duplicate.proposed", {
+  issueId: IssueId,
+  /** The duplicate-category status the issue would move to on confirmation. */
+  statusId: StatusId,
+});
+
+/** A human confirmed or rejected a pending duplicate proposal. */
+export const DuplicateResolved = defineEvent("duplicate.resolved", {
+  issueId: IssueId,
+  accepted: Schema.Boolean,
+});
+
+/** Cost observed for work on an issue (03-PHASE-2 §A `ml_log_cost`). */
+export const CostRecorded = defineEvent("cost.recorded", {
+  issueId: IssueId,
+  tokens: Schema.optional(Schema.Int),
+  currencyAmount: Schema.optional(Schema.Number),
+  note: Schema.optional(Schema.String),
+});
+
 export const TrackerEvent = Schema.Union([
   SpaceCreated,
   StatusCreated,
@@ -141,6 +185,11 @@ export const TrackerEvent = Schema.Union([
   RelationAdded,
   RelationRemoved,
   RunLinked,
+  ProofAttached,
+  InputRequested,
+  DuplicateProposed,
+  DuplicateResolved,
+  CostRecorded,
 ]);
 export type TrackerEvent = typeof TrackerEvent.Type;
 

@@ -10,6 +10,7 @@ import { CommandRejectedError, TrackerCommand } from "./Commands.ts";
 import { ImportRejectedError, IssueNotFoundError, TrackerStorageError } from "./Errors.ts";
 import { StoredTrackerEvent, TrackerEvent } from "./Events.ts";
 import { IssueId, Label, Space, SpaceId, Status } from "./Model.ts";
+import { WorkflowProfile } from "./Profile.ts";
 import { IssueDetail, IssueFilter, IssueSummary } from "./Views.ts";
 
 export { IssueFilter } from "./Views.ts";
@@ -75,6 +76,25 @@ export const IssueActivityResult = Schema.Struct({
   entries: Schema.Array(StoredTrackerEvent),
 });
 
+/** Issues in `ready` with no open blockers (03-PHASE-2 §A). */
+export const IssuesReadyQuery = Schema.Struct({
+  type: Schema.Literal("issues.ready"),
+  spaceId: Schema.optional(SpaceId),
+});
+export const IssuesReadyResult = Schema.Struct({
+  issues: Schema.Array(IssueSummary),
+});
+
+/** Workflow profiles loaded from the active repo (03-PHASE-2 §D). */
+export const ProfilesListQuery = Schema.Struct({
+  type: Schema.Literal("profiles.list"),
+});
+export const ProfilesListResult = Schema.Struct({
+  profiles: Schema.Array(WorkflowProfile),
+  /** Load failures, surfaced loudly: `path: reason`. */
+  errors: Schema.Array(Schema.String),
+});
+
 export const TrackerQuery = Schema.Union([
   SpacesListQuery,
   StatusesListQuery,
@@ -82,6 +102,8 @@ export const TrackerQuery = Schema.Union([
   IssuesListQuery,
   IssueGetQuery,
   IssueActivityQuery,
+  IssuesReadyQuery,
+  ProfilesListQuery,
 ]);
 export type TrackerQuery = typeof TrackerQuery.Type;
 
