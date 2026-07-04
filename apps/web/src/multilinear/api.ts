@@ -69,19 +69,22 @@ const postJson = Effect.fnUntraced(function* (path: string, body: unknown) {
   return json;
 });
 
-const runQuery = <Result extends Schema.Top & { readonly DecodingServices: never }>(
-  query: TrackerQuery,
+/** Build a query runner with its result decoder compiled once. */
+const makeQueryRunner = <Result extends Schema.Top & { readonly DecodingServices: never }>(
   result: Result,
-) =>
-  runtime.runPromise(
-    postJson(MULTILINEAR_QUERY_PATH, query).pipe(
-      Effect.flatMap((json) =>
-        Schema.decodeUnknownEffect(result)(json).pipe(
-          Effect.mapError((cause) => new MultilinearApiError(String(cause), 0)),
+) => {
+  const decode = Schema.decodeUnknownEffect(result);
+  return (query: TrackerQuery): Promise<Result["Type"]> =>
+    runtime.runPromise(
+      postJson(MULTILINEAR_QUERY_PATH, query).pipe(
+        Effect.flatMap((json) =>
+          decode(json).pipe(Effect.mapError((cause) => new MultilinearApiError(String(cause), 0))),
         ),
       ),
-    ),
-  );
+    );
+};
+
+const decodeCommandResponse = Schema.decodeUnknownEffect(CommandResponse);
 
 /** Execute a tracker command; the server derives the (human) actor. */
 export const mlCommand = (command: TrackerCommand): Promise<CommandResponse> =>
@@ -90,32 +93,34 @@ export const mlCommand = (command: TrackerCommand): Promise<CommandResponse> =>
       Effect.mapError((cause) => new MultilinearApiError(String(cause), 0)),
       Effect.flatMap((encoded) => postJson(MULTILINEAR_COMMAND_PATH, encoded)),
       Effect.flatMap((json) =>
-        Schema.decodeUnknownEffect(CommandResponse)(json).pipe(
+        decodeCommandResponse(json).pipe(
           Effect.mapError((cause) => new MultilinearApiError(String(cause), 0)),
         ),
       ),
     ),
   );
 
-export const mlListSpaces = () => runQuery({ type: "spaces.list" }, SpacesListResult);
+const runSpacesList = makeQueryRunner(SpacesListResult);
+const runStatusesList = makeQueryRunner(StatusesListResult);
+const runLabelsList = makeQueryRunner(LabelsListResult);
+const runIssuesList = makeQueryRunner(IssuesListResult);
+const runIssueGet = makeQueryRunner(IssueGetResult);
+const runIssueActivity = makeQueryRunner(IssueActivityResult);
+
+export const mlListSpaces = () => runSpacesList({ type: "spaces.list" });
 
 export const mlListStatuses = (spaceId: SpaceId) =>
-  runQuery({ type: "statuses.list", spaceId }, StatusesListResult);
+  runStatusesList({ type: "statuses.list", spaceId });
 
 export const mlListLabels = (spaceId?: SpaceId) =>
-  runQuery(
-    spaceId === undefined ? { type: "labels.list" } : { type: "labels.list", spaceId },
-    LabelsListResult,
-  );
+  runLabelsList(spaceId === undefined ? { type: "labels.list" } : { type: "labels.list", spaceId });
 
-export const mlListIssues = (filter: IssueFilter) =>
-  runQuery({ type: "issues.list", filter }, IssuesListResult);
+export const mlListIssues = (filter: IssueFilter) => runIssuesList({ type: "issues.list", filter });
 
-export const mlGetIssue = (issueId: IssueId) =>
-  runQuery({ type: "issue.get", issueId }, IssueGetResult);
+export const mlGetIssue = (issueId: IssueId) => runIssueGet({ type: "issue.get", issueId });
 
 export const mlIssueActivity = (issueId: IssueId) =>
-  runQuery({ type: "issue.activity", issueId }, IssueActivityResult);
+  runIssueActivity({ type: "issue.activity", issueId });
 
 const ulid = makeUlidGenerator((bytes) =>
   globalThis.crypto.getRandomValues(bytes as Uint8Array<ArrayBuffer>),

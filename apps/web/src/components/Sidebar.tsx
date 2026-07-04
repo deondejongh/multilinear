@@ -72,6 +72,7 @@ import {
   type SidebarThreadSortOrder,
 } from "@t3tools/contracts/settings";
 import { isDesktopLocalConnectionTarget } from "../connection/desktopLocal";
+import { MultilinearSidebarNavItem } from "../multilinear/SidebarNavItem";
 import { useDesktopLocalBootstraps } from "../connection/useDesktopLocalBootstraps";
 import { isElectron } from "../env";
 import { APP_STAGE_LABEL } from "../branding";
@@ -2816,6 +2817,7 @@ const SidebarChromeFooter = memo(function SidebarChromeFooter() {
       <SidebarProviderUpdatePill />
       <SidebarUpdatePill />
       <SidebarMenu>
+        <MultilinearSidebarNavItem />
         <SidebarMenuItem>
           <SidebarMenuButton
             size="sm"

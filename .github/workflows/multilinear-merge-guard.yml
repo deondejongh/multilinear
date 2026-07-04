@@ -33,10 +33,9 @@ jobs:
       - name: Typecheck
         run: vpr typecheck
 
-      # Placeholder test target until packages/multilinear-core exists (Phase 1):
-      # the scripts package hosts our mount-point checker and its tests.
+      # Our packages plus the scripts package (mount-point checker tests).
       - name: Multilinear tests
-        run: vp run --filter @t3tools/scripts test
+        run: vp run --filter @multilinear/core --filter @multilinear/server --filter @t3tools/scripts test
 
       - name: Verify mount points
         run: node scripts/multilinear/check-mountpoints.ts

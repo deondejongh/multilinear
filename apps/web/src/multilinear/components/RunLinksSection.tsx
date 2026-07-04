@@ -1,0 +1,133 @@
+/**
+ * Run links section for the detail sidebar. Lists run links (icon per kind,
+ * truncated ref; `pr` refs open in a new tab). "Add run link" opens a popover
+ * with a kind select + ref input → `run-link.add`.
+ */
+import { useCallback, useState } from "react";
+import { PlusIcon } from "lucide-react";
+
+import type { IssueId, RunLink, RunLinkId, RunLinkKind } from "@multilinear/core/model";
+
+import { Button } from "~/components/ui/button";
+import { Input } from "~/components/ui/input";
+import { Popover, PopoverPopup, PopoverTrigger } from "~/components/ui/popover";
+import {
+  Select,
+  SelectItem,
+  SelectPopup,
+  SelectTrigger,
+  SelectValue,
+} from "~/components/ui/select";
+import { newEntityId } from "../api";
+import { RUN_LINK_KIND_LABELS, RUN_LINK_KIND_OPTIONS, runLinkIcon } from "../presentation";
+import { useMultilinearStore } from "../store";
+
+function isUrl(ref: string): boolean {
+  return /^https?:\/\//i.test(ref);
+}
+
+function AddRunLinkPopover({
+  issueId,
+  onMutated,
+}: {
+  issueId: IssueId;
+  onMutated?: (() => Promise<void> | void) | undefined;
+}) {
+  const runCommand = useMultilinearStore((state) => state.runCommand);
+  const [kind, setKind] = useState<RunLinkKind>("thread");
+  const [ref, setRef] = useState("");
+  const [open, setOpen] = useState(false);
+
+  const submit = useCallback(async () => {
+    const trimmed = ref.trim();
+    if (trimmed.length === 0) return;
+    const runLinkId = newEntityId<RunLinkId>();
+    await runCommand({ type: "run-link.add", runLinkId, issueId, kind, ref: trimmed });
+    setRef("");
+    setOpen(false);
+    await onMutated?.();
+  }, [issueId, kind, onMutated, ref, runCommand]);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger
+        render={<Button variant="outline" size="sm" className="w-full justify-start" />}
+      >
+        <PlusIcon className="size-3.5" />
+        Add run link
+      </PopoverTrigger>
+      <PopoverPopup align="start" className="w-72 space-y-2 p-2">
+        <Select value={kind} onValueChange={(next) => setKind(next as RunLinkKind)}>
+          <SelectTrigger size="sm" className="w-full" aria-label="Run link kind">
+            <SelectValue>{RUN_LINK_KIND_LABELS[kind]}</SelectValue>
+          </SelectTrigger>
+          <SelectPopup>
+            {RUN_LINK_KIND_OPTIONS.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectPopup>
+        </Select>
+        <Input
+          autoFocus
+          size="sm"
+          placeholder={kind === "pr" ? "https://github.com/…" : "Reference"}
+          value={ref}
+          onChange={(event) => setRef(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              void submit();
+            }
+          }}
+        />
+        <div className="flex justify-end">
+          <Button size="xs" disabled={ref.trim().length === 0} onClick={() => void submit()}>
+            Add
+          </Button>
+        </div>
+      </PopoverPopup>
+    </Popover>
+  );
+}
+
+function RunLinkItem({ link }: { link: RunLink }) {
+  const Icon = runLinkIcon(link.kind);
+  const inner = (
+    <>
+      <Icon className="size-3.5 shrink-0 text-muted-foreground" />
+      <span className="min-w-0 flex-1 truncate">{link.ref}</span>
+    </>
+  );
+  const className =
+    "flex items-center gap-2 rounded-sm px-1 py-1 text-xs text-foreground outline-none hover:bg-accent/50";
+
+  if (link.kind === "pr" && isUrl(link.ref)) {
+    return (
+      <a href={link.ref} target="_blank" rel="noreferrer" className={className}>
+        {inner}
+      </a>
+    );
+  }
+  return <div className={className}>{inner}</div>;
+}
+
+export function RunLinksSection({
+  issueId,
+  runLinks,
+  onMutated,
+}: {
+  issueId: IssueId;
+  runLinks: ReadonlyArray<RunLink>;
+  onMutated?: (() => Promise<void> | void) | undefined;
+}) {
+  return (
+    <div className="space-y-1">
+      {runLinks.map((link) => (
+        <RunLinkItem key={link.id} link={link} />
+      ))}
+      <AddRunLinkPopover issueId={issueId} onMutated={onMutated} />
+    </div>
+  );
+}

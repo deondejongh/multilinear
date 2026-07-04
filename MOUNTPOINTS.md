@@ -16,13 +16,14 @@ Reference format for the **Lines** column, checked by
 - `` `some text` `` — an anchor; the file must contain this exact substring.
 - `—` — existence only; the file merely has to exist.
 
-| File                        | Lines                                                     | Purpose                                                                                                                                 | Date       |
-| --------------------------- | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| `AGENTS.md`                 | `## Picking the right models for workflows and subagents` | Human-added model-selection guidance for agent sessions (pre-dates Phase 0; instructions, not code — exceeds the 5-line rule knowingly) | 2026-07-04 |
-| `CLAUDE.md`                 | —                                                         | Symlink to AGENTS.md so all agent harnesses share one instruction file                                                                  | 2026-07-04 |
-| `apps/server/package.json`  | `"@multilinear/core": "workspace:*"`                      | Workspace deps on our two packages (core + server) so the adapter can import them                                                       | 2026-07-04 |
-| `apps/server/src/server.ts` | `multilinearRouteLayer`                                   | Registers the `/api/multilinear` route layer (import + one entry in `makeRoutesLayer`)                                                  | 2026-07-04 |
-| `apps/web/package.json`     | `"@multilinear/core": "workspace:*"`                      | Workspace dep so the web UI can import tracker schemas and the API contract                                                             | 2026-07-04 |
+| File                                  | Lines                                                     | Purpose                                                                                                                                 | Date       |
+| ------------------------------------- | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| `AGENTS.md`                           | `## Picking the right models for workflows and subagents` | Human-added model-selection guidance for agent sessions (pre-dates Phase 0; instructions, not code — exceeds the 5-line rule knowingly) | 2026-07-04 |
+| `CLAUDE.md`                           | —                                                         | Symlink to AGENTS.md so all agent harnesses share one instruction file                                                                  | 2026-07-04 |
+| `apps/server/package.json`            | `"@multilinear/core": "workspace:*"`                      | Workspace deps on our two packages (core + server) so the adapter can import them                                                       | 2026-07-04 |
+| `apps/server/src/server.ts`           | `multilinearRouteLayer`                                   | Registers the `/api/multilinear` route layer (import + one entry in `makeRoutesLayer`)                                                  | 2026-07-04 |
+| `apps/web/package.json`               | `"@multilinear/core": "workspace:*"`                      | Workspace dep so the web UI can import tracker schemas and the API contract                                                             | 2026-07-04 |
+| `apps/web/src/components/Sidebar.tsx` | `MultilinearSidebarNavItem`                               | Sidebar footer nav entry for `/multilinear` (import + one JSX element)                                                                  | 2026-07-04 |
 
 Generated files that change as a side effect of our additions (not mount
 points; regenerate rather than hand-merge on conflicts): `pnpm-lock.yaml`

@@ -11,7 +11,9 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as PairRouteImport } from './routes/pair'
+import { Route as MultilinearRouteImport } from './routes/multilinear'
 import { Route as ChatRouteImport } from './routes/_chat'
+import { Route as MultilinearIndexRouteImport } from './routes/multilinear.index'
 import { Route as ChatIndexRouteImport } from './routes/_chat.index'
 import { Route as SettingsSourceControlRouteImport } from './routes/settings.source-control'
 import { Route as SettingsProvidersRouteImport } from './routes/settings.providers'
@@ -20,6 +22,8 @@ import { Route as SettingsGeneralRouteImport } from './routes/settings.general'
 import { Route as SettingsDiagnosticsRouteImport } from './routes/settings.diagnostics'
 import { Route as SettingsConnectionsRouteImport } from './routes/settings.connections'
 import { Route as SettingsArchivedRouteImport } from './routes/settings.archived'
+import { Route as MultilinearTriageRouteImport } from './routes/multilinear.triage'
+import { Route as MultilinearIssueIssueIdRouteImport } from './routes/multilinear.issue.$issueId'
 import { Route as ChatDraftDraftIdRouteImport } from './routes/_chat.draft.$draftId'
 import { Route as ChatEnvironmentIdThreadIdRouteImport } from './routes/_chat.$environmentId.$threadId'
 
@@ -33,9 +37,19 @@ const PairRoute = PairRouteImport.update({
   path: '/pair',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MultilinearRoute = MultilinearRouteImport.update({
+  id: '/multilinear',
+  path: '/multilinear',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ChatRoute = ChatRouteImport.update({
   id: '/_chat',
   getParentRoute: () => rootRouteImport,
+} as any)
+const MultilinearIndexRoute = MultilinearIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => MultilinearRoute,
 } as any)
 const ChatIndexRoute = ChatIndexRouteImport.update({
   id: '/',
@@ -77,6 +91,16 @@ const SettingsArchivedRoute = SettingsArchivedRouteImport.update({
   path: '/archived',
   getParentRoute: () => SettingsRoute,
 } as any)
+const MultilinearTriageRoute = MultilinearTriageRouteImport.update({
+  id: '/triage',
+  path: '/triage',
+  getParentRoute: () => MultilinearRoute,
+} as any)
+const MultilinearIssueIssueIdRoute = MultilinearIssueIssueIdRouteImport.update({
+  id: '/issue/$issueId',
+  path: '/issue/$issueId',
+  getParentRoute: () => MultilinearRoute,
+} as any)
 const ChatDraftDraftIdRoute = ChatDraftDraftIdRouteImport.update({
   id: '/draft/$draftId',
   path: '/draft/$draftId',
@@ -91,8 +115,10 @@ const ChatEnvironmentIdThreadIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof ChatIndexRoute
+  '/multilinear': typeof MultilinearRouteWithChildren
   '/pair': typeof PairRoute
   '/settings': typeof SettingsRouteWithChildren
+  '/multilinear/triage': typeof MultilinearTriageRoute
   '/settings/archived': typeof SettingsArchivedRoute
   '/settings/connections': typeof SettingsConnectionsRoute
   '/settings/diagnostics': typeof SettingsDiagnosticsRoute
@@ -100,12 +126,15 @@ export interface FileRoutesByFullPath {
   '/settings/keybindings': typeof SettingsKeybindingsRoute
   '/settings/providers': typeof SettingsProvidersRoute
   '/settings/source-control': typeof SettingsSourceControlRoute
+  '/multilinear/': typeof MultilinearIndexRoute
   '/$environmentId/$threadId': typeof ChatEnvironmentIdThreadIdRoute
   '/draft/$draftId': typeof ChatDraftDraftIdRoute
+  '/multilinear/issue/$issueId': typeof MultilinearIssueIssueIdRoute
 }
 export interface FileRoutesByTo {
   '/pair': typeof PairRoute
   '/settings': typeof SettingsRouteWithChildren
+  '/multilinear/triage': typeof MultilinearTriageRoute
   '/settings/archived': typeof SettingsArchivedRoute
   '/settings/connections': typeof SettingsConnectionsRoute
   '/settings/diagnostics': typeof SettingsDiagnosticsRoute
@@ -114,14 +143,18 @@ export interface FileRoutesByTo {
   '/settings/providers': typeof SettingsProvidersRoute
   '/settings/source-control': typeof SettingsSourceControlRoute
   '/': typeof ChatIndexRoute
+  '/multilinear': typeof MultilinearIndexRoute
   '/$environmentId/$threadId': typeof ChatEnvironmentIdThreadIdRoute
   '/draft/$draftId': typeof ChatDraftDraftIdRoute
+  '/multilinear/issue/$issueId': typeof MultilinearIssueIssueIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_chat': typeof ChatRouteWithChildren
+  '/multilinear': typeof MultilinearRouteWithChildren
   '/pair': typeof PairRoute
   '/settings': typeof SettingsRouteWithChildren
+  '/multilinear/triage': typeof MultilinearTriageRoute
   '/settings/archived': typeof SettingsArchivedRoute
   '/settings/connections': typeof SettingsConnectionsRoute
   '/settings/diagnostics': typeof SettingsDiagnosticsRoute
@@ -130,15 +163,19 @@ export interface FileRoutesById {
   '/settings/providers': typeof SettingsProvidersRoute
   '/settings/source-control': typeof SettingsSourceControlRoute
   '/_chat/': typeof ChatIndexRoute
+  '/multilinear/': typeof MultilinearIndexRoute
   '/_chat/$environmentId/$threadId': typeof ChatEnvironmentIdThreadIdRoute
   '/_chat/draft/$draftId': typeof ChatDraftDraftIdRoute
+  '/multilinear/issue/$issueId': typeof MultilinearIssueIssueIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/multilinear'
     | '/pair'
     | '/settings'
+    | '/multilinear/triage'
     | '/settings/archived'
     | '/settings/connections'
     | '/settings/diagnostics'
@@ -146,12 +183,15 @@ export interface FileRouteTypes {
     | '/settings/keybindings'
     | '/settings/providers'
     | '/settings/source-control'
+    | '/multilinear/'
     | '/$environmentId/$threadId'
     | '/draft/$draftId'
+    | '/multilinear/issue/$issueId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/pair'
     | '/settings'
+    | '/multilinear/triage'
     | '/settings/archived'
     | '/settings/connections'
     | '/settings/diagnostics'
@@ -160,13 +200,17 @@ export interface FileRouteTypes {
     | '/settings/providers'
     | '/settings/source-control'
     | '/'
+    | '/multilinear'
     | '/$environmentId/$threadId'
     | '/draft/$draftId'
+    | '/multilinear/issue/$issueId'
   id:
     | '__root__'
     | '/_chat'
+    | '/multilinear'
     | '/pair'
     | '/settings'
+    | '/multilinear/triage'
     | '/settings/archived'
     | '/settings/connections'
     | '/settings/diagnostics'
@@ -175,12 +219,15 @@ export interface FileRouteTypes {
     | '/settings/providers'
     | '/settings/source-control'
     | '/_chat/'
+    | '/multilinear/'
     | '/_chat/$environmentId/$threadId'
     | '/_chat/draft/$draftId'
+    | '/multilinear/issue/$issueId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   ChatRoute: typeof ChatRouteWithChildren
+  MultilinearRoute: typeof MultilinearRouteWithChildren
   PairRoute: typeof PairRoute
   SettingsRoute: typeof SettingsRouteWithChildren
 }
@@ -201,12 +248,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PairRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/multilinear': {
+      id: '/multilinear'
+      path: '/multilinear'
+      fullPath: '/multilinear'
+      preLoaderRoute: typeof MultilinearRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_chat': {
       id: '/_chat'
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof ChatRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/multilinear/': {
+      id: '/multilinear/'
+      path: '/'
+      fullPath: '/multilinear/'
+      preLoaderRoute: typeof MultilinearIndexRouteImport
+      parentRoute: typeof MultilinearRoute
     }
     '/_chat/': {
       id: '/_chat/'
@@ -264,6 +325,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsArchivedRouteImport
       parentRoute: typeof SettingsRoute
     }
+    '/multilinear/triage': {
+      id: '/multilinear/triage'
+      path: '/triage'
+      fullPath: '/multilinear/triage'
+      preLoaderRoute: typeof MultilinearTriageRouteImport
+      parentRoute: typeof MultilinearRoute
+    }
+    '/multilinear/issue/$issueId': {
+      id: '/multilinear/issue/$issueId'
+      path: '/issue/$issueId'
+      fullPath: '/multilinear/issue/$issueId'
+      preLoaderRoute: typeof MultilinearIssueIssueIdRouteImport
+      parentRoute: typeof MultilinearRoute
+    }
     '/_chat/draft/$draftId': {
       id: '/_chat/draft/$draftId'
       path: '/draft/$draftId'
@@ -295,6 +370,22 @@ const ChatRouteChildren: ChatRouteChildren = {
 
 const ChatRouteWithChildren = ChatRoute._addFileChildren(ChatRouteChildren)
 
+interface MultilinearRouteChildren {
+  MultilinearTriageRoute: typeof MultilinearTriageRoute
+  MultilinearIndexRoute: typeof MultilinearIndexRoute
+  MultilinearIssueIssueIdRoute: typeof MultilinearIssueIssueIdRoute
+}
+
+const MultilinearRouteChildren: MultilinearRouteChildren = {
+  MultilinearTriageRoute: MultilinearTriageRoute,
+  MultilinearIndexRoute: MultilinearIndexRoute,
+  MultilinearIssueIssueIdRoute: MultilinearIssueIssueIdRoute,
+}
+
+const MultilinearRouteWithChildren = MultilinearRoute._addFileChildren(
+  MultilinearRouteChildren,
+)
+
 interface SettingsRouteChildren {
   SettingsArchivedRoute: typeof SettingsArchivedRoute
   SettingsConnectionsRoute: typeof SettingsConnectionsRoute
@@ -321,6 +412,7 @@ const SettingsRouteWithChildren = SettingsRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   ChatRoute: ChatRouteWithChildren,
+  MultilinearRoute: MultilinearRouteWithChildren,
   PairRoute: PairRoute,
   SettingsRoute: SettingsRouteWithChildren,
 }
