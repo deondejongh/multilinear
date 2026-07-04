@@ -19,6 +19,10 @@ const dbPath = NodePath.join(
   NodeOS.tmpdir(),
   `multilinear-migration-test-${process.pid}-${Date.now()}.db`,
 );
+const driftDbPath = NodePath.join(
+  NodeOS.tmpdir(),
+  `multilinear-migration-drift-test-${process.pid}-${Date.now()}.db`,
+);
 
 describe("projection-schema migration", () => {
   it.effect("an outdated user_version triggers a full projection replay", () =>
@@ -52,6 +56,38 @@ describe("projection-schema migration", () => {
       };
       versioned.close();
       assert.isAbove(version.user_version, 0);
+    }),
+  );
+
+  it.effect("shape drift is healed on open even when user_version is current", () =>
+    Effect.gen(function* () {
+      // A concurrent old-code process can recreate a projection table with a
+      // stale shape between a migration's DROP and CREATE (its open-time
+      // `CREATE TABLE IF NOT EXISTS`), leaving the version marker current
+      // but a column missing — seen live with `spaces.repo_paths` (MLT-47).
+      const before = yield* Effect.gen(function* () {
+        const fixture = yield* setup();
+        yield* fixture.store.execute(
+          { type: "space.update", spaceId: fixture.spaceId, repoPaths: ["/repos/multilinear"] },
+          { kind: "human", id: "test" },
+        );
+        return yield* fixture.store.dumpProjections();
+      }).pipe(Effect.provide(TrackerStore.layer({ dbPath: driftDbPath })), Effect.scoped);
+
+      // Old shape, current version — exactly the corrupted live state.
+      const raw = new NodeSqlite.DatabaseSync(driftDbPath);
+      raw.exec("DROP TABLE spaces");
+      raw.exec(
+        "CREATE TABLE spaces (id TEXT PRIMARY KEY, name TEXT NOT NULL, key TEXT NOT NULL UNIQUE, created_at TEXT NOT NULL)",
+      );
+      raw.close();
+
+      const after = yield* Effect.gen(function* () {
+        const store = yield* TrackerStore;
+        return yield* store.dumpProjections();
+      }).pipe(Effect.provide(TrackerStore.layer({ dbPath: driftDbPath })), Effect.scoped);
+
+      assert.deepStrictEqual(after, before);
     }),
   );
 });

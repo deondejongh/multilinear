@@ -212,6 +212,26 @@ CREATE TABLE IF NOT EXISTS costs (
 CREATE INDEX IF NOT EXISTS idx_costs_issue ON costs(issue_id);
 `;
 
+/**
+ * Comparable form of a CREATE TABLE statement: SQLite's `sqlite_master.sql`
+ * preserves the original text minus `IF NOT EXISTS`, so both sides normalize
+ * to whitespace-collapsed lowercase without that clause.
+ */
+const normalizeSql = (sql: string): string =>
+  sql
+    .replace(/if not exists\s+/i, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+
+/** This build's expected shape per projection table, from SCHEMA_SQL. */
+const EXPECTED_TABLE_SQL: ReadonlyMap<string, string> = new Map(
+  [...SCHEMA_SQL.matchAll(/CREATE TABLE IF NOT EXISTS (\w+) \([^;]+\)/g)].map((match) => [
+    match[1] as string,
+    normalizeSql(match[0]),
+  ]),
+);
+
 const encodeEventJson = Schema.encodeEffect(Schema.fromJsonString(TrackerEvent));
 const decodeEventJson = Schema.decodeEffect(Schema.fromJsonString(TrackerEvent));
 
@@ -1653,21 +1673,39 @@ const makeTrackerStore = Effect.fnUntraced(function* (config: TrackerStoreConfig
   });
 
   // Projection-schema migration: replay the log into freshly shaped tables
-  // when the stored version predates this build (see PROJECTION_SCHEMA_VERSION).
+  // when the stored version predates this build (see PROJECTION_SCHEMA_VERSION)
+  // — or when a table's actual shape drifted from this build's SCHEMA_SQL.
+  // The drift check matters because other PROCESSES share the file: an
+  // old-code process opening mid-migration can win the race between our
+  // DROP and CREATE with its own open-time `CREATE TABLE IF NOT EXISTS`
+  // (old shape), leaving version-current tables with stale columns. The
+  // whole migration runs in one immediate transaction so concurrent
+  // openers wait it out instead of interleaving.
   const storedVersion = yield* run(
     "read-projection-version",
     () => (get("PRAGMA user_version")?.user_version as number | undefined) ?? 0,
   );
-  if (storedVersion < PROJECTION_SCHEMA_VERSION) {
-    yield* run("migrate-projections", () => {
-      for (const table of PROJECTION_TABLES) {
-        db.exec(`DROP TABLE IF EXISTS ${table}`);
-      }
-      db.exec(SCHEMA_SQL);
-    });
-    yield* rebuild();
-    yield* run("write-projection-version", () =>
-      db.exec(`PRAGMA user_version = ${PROJECTION_SCHEMA_VERSION}`),
+  const shapeStale = yield* run("check-projection-shape", () =>
+    PROJECTION_TABLES.some((table) => {
+      const expected = EXPECTED_TABLE_SQL.get(table);
+      const actual = get("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?", table)
+        ?.sql as string | undefined;
+      return expected !== undefined && actual !== undefined && normalizeSql(actual) !== expected;
+    }),
+  );
+  if (storedVersion < PROJECTION_SCHEMA_VERSION || shapeStale) {
+    const events = yield* listAllEvents();
+    yield* transactionally("migrate-projections", () =>
+      run("migrate-apply", () => {
+        for (const table of PROJECTION_TABLES) {
+          db.exec(`DROP TABLE IF EXISTS ${table}`);
+        }
+        db.exec(SCHEMA_SQL);
+        for (const stored of events) {
+          applyEvent(stored.event);
+        }
+        db.exec(`PRAGMA user_version = ${PROJECTION_SCHEMA_VERSION}`);
+      }),
     );
   }
 
