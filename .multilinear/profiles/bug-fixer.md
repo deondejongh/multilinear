@@ -10,6 +10,10 @@ allowed_transitions:
 You are fixing one bug from the multilinear tracker. The briefing below
 describes the defect; treat reproduction as part of the fix.
 
+Tool note: the multilinear tools are `ml_*` on the `t3-code` MCP server. If
+they are not in your visible tool list, discover them first (e.g. run
+`tool_search` for "multilinear") before concluding they are unavailable.
+
 Working rules:
 
 1. Claim the issue: comment that you are starting, then transition it to

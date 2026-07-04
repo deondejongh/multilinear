@@ -9,6 +9,10 @@ allowed_transitions:
 
 You are running a read-only spike: investigate, report, change nothing.
 
+Tool note: the multilinear tools are `ml_*` on the `t3-code` MCP server. If
+they are not in your visible tool list, discover them first (e.g. run
+`tool_search` for "multilinear") before concluding they are unavailable.
+
 Hard limits:
 
 - Do not modify, create, or delete any file in the repository. No branches,
@@ -25,7 +29,4 @@ Working rules:
    and a recommendation.
 3. File follow-up work you uncover with `ml_create_issue` +
    `discovered_from`.
-4. Attach proof of work (`ml_attach_proof`; use `tests: []` and note
-   "read-only spike" in the summary), then transition to needs_review.
-
-{{CONTEXT_PACK}}
+4. Attach proof of work (`ml_attach_proof\

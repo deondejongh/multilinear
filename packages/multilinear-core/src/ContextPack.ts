@@ -92,6 +92,11 @@ const buildIssueBriefing = (detail: IssueDetail, maxVerbatimComments: number): s
     "Work only on this issue. When done, summarize what you did and what you did",
     "not do. File any discovered follow-up work as a note at the end.",
     "",
+    "Track your work with the multilinear MCP tools (`ml_*`, served by the",
+    "`t3-code` MCP server). If they are not in your visible tool list, discover",
+    'them first (e.g. run `tool_search` for "multilinear") before concluding',
+    "they are unavailable.",
+    "",
   );
 
   return lines.join("\n");
