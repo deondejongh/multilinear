@@ -29,6 +29,7 @@ import type { IssueSummary } from "@multilinear/core/views";
 import { cn } from "~/lib/utils";
 import { categoryIcon, categoryLabel } from "../presentation";
 import type { CategoryGroup } from "../grouping";
+import type { DisplayOptions } from "../viewPrefs";
 import { IssueCard } from "./IssueCard";
 
 const HIDE_WHEN_EMPTY = new Set(["duplicate", "cancelled"]);
@@ -38,11 +39,13 @@ function DraggableCard({
   selected,
   onSelect,
   onOpen,
+  display,
 }: {
   issue: IssueSummary;
   selected: boolean;
   onSelect: () => void;
   onOpen: () => void;
+  display: DisplayOptions;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: issue.id,
@@ -50,7 +53,13 @@ function DraggableCard({
   });
   return (
     <div ref={setNodeRef} {...listeners} {...attributes} className={cn(isDragging && "opacity-40")}>
-      <IssueCard issue={issue} selected={selected} onSelect={onSelect} onOpen={onOpen} />
+      <IssueCard
+        issue={issue}
+        selected={selected}
+        onSelect={onSelect}
+        onOpen={onOpen}
+        display={display}
+      />
     </div>
   );
 }
@@ -81,12 +90,14 @@ export function BoardView({
   onSelect,
   onOpen,
   onDropIssue,
+  display,
 }: {
   groups: ReadonlyArray<CategoryGroup>;
   selectedId: IssueId | null;
   onSelect: (issue: IssueSummary) => void;
   onOpen: (issue: IssueSummary) => void;
   onDropIssue: (issue: IssueSummary, target: StatusCategory) => void;
+  display: DisplayOptions;
 }) {
   const visible = groups.filter(
     (group) => group.issues.length > 0 || !HIDE_WHEN_EMPTY.has(group.category),
@@ -170,6 +181,7 @@ export function BoardView({
                             selected={issue.id === selectedId}
                             onSelect={() => onSelect(issue)}
                             onOpen={() => onOpen(issue)}
+                            display={display}
                           />
                         ))
                       )}
@@ -191,6 +203,7 @@ export function BoardView({
                 selected
                 onSelect={() => undefined}
                 onOpen={() => undefined}
+                display={display}
               />
             </div>
           ) : null}

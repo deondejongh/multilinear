@@ -17,6 +17,7 @@ import { SidebarInset } from "~/components/ui/sidebar";
 import { ToggleGroup, ToggleGroupItem } from "~/components/ui/toggle-group";
 import { cn } from "~/lib/utils";
 import { subscribeLiveUpdates } from "../multilinear/liveUpdates";
+import { DisplayPopover, FilterPopover } from "../multilinear/components/ViewControls";
 import { QuickCaptureDialog } from "../multilinear/components/QuickCaptureDialog";
 import { SpaceCreateDialog } from "../multilinear/components/SpaceCreateDialog";
 import { TrackerNav } from "../multilinear/components/TrackerNav";
@@ -117,6 +118,9 @@ function MultilinearLayout() {
                 ))}
               </SelectPopup>
             </Select>
+
+            {isIndex ? <FilterPopover /> : null}
+            {isIndex ? <DisplayPopover /> : null}
 
             {isIndex ? (
               <ToggleGroup

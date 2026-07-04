@@ -9,6 +9,7 @@ import type { IssueSummary } from "@multilinear/core/views";
 
 import { formatRelativeTimeLabel } from "~/timestampFormat";
 import { cn } from "~/lib/utils";
+import { DEFAULT_DISPLAY_OPTIONS, type DisplayOptions } from "../viewPrefs";
 import { hasAgentBadges, IssueBadges } from "./IssueBadges";
 import { LabelChip } from "./LabelChip";
 import { PriorityIcon } from "./PriorityIcon";
@@ -19,12 +20,15 @@ export function IssueRow({
   onSelect,
   onOpen,
   trailing,
+  display = DEFAULT_DISPLAY_OPTIONS,
 }: {
   issue: IssueSummary;
   selected: boolean;
   onSelect: () => void;
   onOpen: () => void;
   trailing?: ReactNode;
+  /** Shown properties (MLT-48); agent badges always render. */
+  display?: DisplayOptions;
 }) {
   return (
     <div
@@ -36,17 +40,21 @@ export function IssueRow({
         selected ? "border-primary/50 bg-accent" : "border-transparent hover:bg-accent/50",
       )}
     >
-      <PriorityIcon priority={issue.priority} className="shrink-0" />
-      <span className="w-20 shrink-0 truncate font-mono text-[11px] text-muted-foreground">
-        {issue.shortId}
-      </span>
+      {display.showPriority ? (
+        <PriorityIcon priority={issue.priority} className="shrink-0" />
+      ) : null}
+      {display.showShortId ? (
+        <span className="w-20 shrink-0 truncate font-mono text-[11px] text-muted-foreground">
+          {issue.shortId}
+        </span>
+      ) : null}
       <span className="min-w-0 flex-1 truncate text-foreground">{issue.title}</span>
       {hasAgentBadges(issue) ? (
         <div className="hidden shrink-0 gap-1 sm:flex">
           <IssueBadges issue={issue} />
         </div>
       ) : null}
-      {issue.labels.length > 0 ? (
+      {display.showLabels && issue.labels.length > 0 ? (
         <div className="hidden shrink-0 gap-1 md:flex">
           {issue.labels.slice(0, 3).map((label) => (
             <LabelChip key={label.id} label={label} />

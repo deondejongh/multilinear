@@ -6,7 +6,7 @@
 import { create } from "zustand";
 
 import type { IssueFilter } from "@multilinear/core/api";
-import type { Label, Space, StatusCategory } from "@multilinear/core/model";
+import type { Label, Priority, Space, StatusCategory } from "@multilinear/core/model";
 import type { WorkflowProfile } from "@multilinear/core/profile";
 import type { IssueSummary } from "@multilinear/core/views";
 
@@ -21,6 +21,7 @@ import {
   type SpaceId,
   type TrackerCommand,
 } from "./api";
+import { loadViewPrefs, saveViewPrefs, type DisplayOptions } from "./viewPrefs";
 
 export type MultilinearView = "board" | "list";
 
@@ -29,6 +30,9 @@ export interface MultilinearFilterState {
   labelId: LabelId | null;
   /** When true, only issues currently marked Agent Blocked. */
   agentBlocked: boolean;
+  /** Client-side filters (MLT-48); empty selections mean "all". */
+  priorities: ReadonlyArray<Priority>;
+  categories: ReadonlyArray<StatusCategory>;
 }
 
 interface MultilinearStore {
@@ -50,10 +54,16 @@ interface MultilinearStore {
   /** True once a profiles.list query has resolved (so pickers don't flicker). */
   profilesLoaded: boolean;
 
+  /** Display options (ordering, grouping, shown properties) — persisted. */
+  display: DisplayOptions;
+
   refresh: () => Promise<void>;
   setSpaceFilter: (spaceId: SpaceId | null) => void;
   setLabelFilter: (labelId: LabelId | null) => void;
   setAgentBlockedFilter: (agentBlocked: boolean) => void;
+  setPriorityFilter: (priorities: ReadonlyArray<Priority>) => void;
+  setCategoryFilter: (categories: ReadonlyArray<StatusCategory>) => void;
+  setDisplay: (display: Partial<DisplayOptions>) => void;
   setView: (view: MultilinearView) => void;
   clearError: () => void;
   /** Load workflow profiles once and cache them (idempotent). */
@@ -72,13 +82,31 @@ const issueFilter = (filter: MultilinearFilterState, category?: StatusCategory):
 const errorMessage = (cause: unknown): string =>
   cause instanceof MultilinearApiError ? cause.message : String(cause);
 
+const initialPrefs = loadViewPrefs();
+
+/** Persist the view-configuration slice of the store (MLT-48). */
+const persistPrefs = (state: Pick<MultilinearStore, "view" | "display" | "filter">) => {
+  saveViewPrefs({
+    view: state.view,
+    display: state.display,
+    filters: { priorities: state.filter.priorities, categories: state.filter.categories },
+  });
+};
+
 export const useMultilinearStore = create<MultilinearStore>((set, get) => ({
   spaces: [],
   labels: [],
   issues: [],
   triageIssues: [],
-  filter: { spaceId: null, labelId: null, agentBlocked: false },
-  view: "board",
+  filter: {
+    spaceId: null,
+    labelId: null,
+    agentBlocked: false,
+    priorities: initialPrefs.filters.priorities,
+    categories: initialPrefs.filters.categories,
+  },
+  view: initialPrefs.view,
+  display: initialPrefs.display,
   loading: false,
   error: null,
   profiles: [],
@@ -123,7 +151,27 @@ export const useMultilinearStore = create<MultilinearStore>((set, get) => ({
     void get().refresh();
   },
 
-  setView: (view) => set({ view }),
+  // Priority/category filters are applied client-side over the already
+  // fetched issues (MLT-48) — no refetch needed.
+  setPriorityFilter: (priorities) => {
+    set((state) => ({ filter: { ...state.filter, priorities } }));
+    persistPrefs(get());
+  },
+
+  setCategoryFilter: (categories) => {
+    set((state) => ({ filter: { ...state.filter, categories } }));
+    persistPrefs(get());
+  },
+
+  setDisplay: (display) => {
+    set((state) => ({ display: { ...state.display, ...display } }));
+    persistPrefs(get());
+  },
+
+  setView: (view) => {
+    set({ view });
+    persistPrefs(get());
+  },
 
   clearError: () => set({ error: null }),
 

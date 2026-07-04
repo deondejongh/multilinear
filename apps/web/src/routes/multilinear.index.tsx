@@ -10,7 +10,12 @@ import { mlGetIssue } from "../multilinear/api";
 import { BoardView } from "../multilinear/components/BoardView";
 import { ListView } from "../multilinear/components/ListView";
 import { useReadyGateGuard } from "../multilinear/components/ReadyGateDialog";
-import { groupByCategory } from "../multilinear/grouping";
+import {
+  applyViewFilters,
+  groupByCategory,
+  groupForList,
+  orderIssues,
+} from "../multilinear/grouping";
 import { useMultilinearStore } from "../multilinear/store";
 import { useStatusMover } from "../multilinear/statusCache";
 import { useTrackerNav } from "../multilinear/useTrackerNav";
@@ -30,6 +35,9 @@ function MultilinearIndex() {
   const issues = useMultilinearStore((state) => state.issues);
   const view = useMultilinearStore((state) => state.view);
   const loading = useMultilinearStore((state) => state.loading);
+  const display = useMultilinearStore((state) => state.display);
+  const priorities = useMultilinearStore((state) => state.filter.priorities);
+  const categories = useMultilinearStore((state) => state.filter.categories);
   const { goToIssue } = useTrackerNav();
   const { moveIssueToCategory } = useStatusMover();
   const readyGate = useReadyGateGuard();
@@ -41,7 +49,18 @@ function MultilinearIndex() {
     if (!loading) setHasLoadedOnce(true);
   }, [loading]);
 
-  const groups = useMemo(() => groupByCategory(issues), [issues]);
+  // The view pipeline (MLT-48): filter -> order -> group.
+  const visibleIssues = useMemo(
+    () => orderIssues(applyViewFilters(issues, { priorities, categories }), display.ordering),
+    [issues, priorities, categories, display.ordering],
+  );
+
+  const groups = useMemo(() => groupByCategory(visibleIssues), [visibleIssues]);
+
+  const listGroups = useMemo(
+    () => groupForList(visibleIssues, display.listGrouping),
+    [visibleIssues, display.listGrouping],
+  );
 
   // Visible columns (board) mirror BoardView's empty-column hiding so keyboard
   // left/right traversal matches what the user sees.
@@ -53,22 +72,27 @@ function MultilinearIndex() {
     [groups],
   );
 
+  // Keyboard traversal follows the view the user actually sees: board columns
+  // or the list's visible groups (MLT-48).
   const flatEntries = useMemo<FlatEntry[]>(() => {
     const entries: FlatEntry[] = [];
-    boardColumns.forEach((group, columnIndex) => {
+    const source =
+      view === "board" ? boardColumns : listGroups.map((group) => ({ issues: group.issues }));
+    source.forEach((group, columnIndex) => {
       group.issues.forEach((issue, rowIndex) => {
-        entries.push({ category: group.category, columnIndex, rowIndex, issue });
+        entries.push({ category: issue.category, columnIndex, rowIndex, issue });
       });
     });
     return entries;
-  }, [boardColumns]);
+  }, [view, boardColumns, listGroups]);
 
-  // Keep the selection valid across refreshes; drop it if the issue vanished.
+  // Keep the selection valid across refreshes; drop it if the issue vanished
+  // (or was filtered out).
   useEffect(() => {
-    if (selectedId !== null && !issues.some((issue) => issue.id === selectedId)) {
+    if (selectedId !== null && !visibleIssues.some((issue) => issue.id === selectedId)) {
       setSelectedId(null);
     }
-  }, [issues, selectedId]);
+  }, [visibleIssues, selectedId]);
 
   const selectedEntry = flatEntries.find((entry) => entry.issue.id === selectedId) ?? null;
 
@@ -235,9 +259,16 @@ function MultilinearIndex() {
           onSelect={onSelect}
           onOpen={onOpen}
           onDropIssue={(issue, target) => void moveIssueTo(issue, target)}
+          display={display}
         />
       ) : (
-        <ListView groups={groups} selectedId={selectedId} onSelect={onSelect} onOpen={onOpen} />
+        <ListView
+          groups={listGroups}
+          selectedId={selectedId}
+          onSelect={onSelect}
+          onOpen={onOpen}
+          display={display}
+        />
       )}
       {readyGate.dialog}
     </>
