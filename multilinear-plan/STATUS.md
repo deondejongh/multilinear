@@ -62,7 +62,63 @@ _(agents list discovered work here until Phase 1's tracker can hold it)_
 
 ## Session log
 
-### 2026-07-04 — Quick-win batch between Phase 2 and Phase 3 (planning entry)
+### 2026-07-05 — Quick-win batch between Phase 2 and Phase 3 (COMPLETE)
+
+**Done — all 8 slated issues, each claimed → in_progress → proof →
+needs_review through the tracker as agent `claude-code:quick-wins`, one
+commit per issue (or one for the intertwined pair):**
+
+- **MLT-55** short-id URLs: `issue.get`/`issue.activity` accept ULID or
+  short-id (resolved server-side, 404 on miss); in-app links now build
+  readable `/multilinear/issue/MLT-7` URLs; commands keep the canonical id.
+- **MLT-59** `ml_list_issues`: general MCP read tool (space /
+  status_category / label-by-name / search / agent_blocked) over the
+  existing `listIssues` query, cap 100 + `truncated`, described as THE way
+  to browse so agents stop reading the SQLite file.
+- **MLT-52 + MLT-41** (one adapter rework): the tracker DB opens once per
+  process via a module-level `Effect.cached` open shared by the routes tree
+  and the hosted-MCP tree (verified: one `tracker.db` fd, was two); open
+  failure no longer kills boot — `TrackerStore.unavailable` + the
+  `unavailable` sentinel → routes 503, MCP tools return the reason
+  (verified live with `MULTILINEAR_DB_PATH=/dev/null/nope`).
+- **MLT-53** cost projection: projection schema **v3** (`costs` table,
+  drop-and-replay per D21 — the real DB migrated during the session);
+  `IssueDetail.costs` totals + a "Recorded cost" sidebar line.
+- **MLT-56** developer instructions: steering block generated from the
+  toolkit tool names in `@multilinear/server`, interpolated into both Codex
+  mode templates — new mount point in `CodexDeveloperInstructions.ts`
+  (8 rows total, checker green). Other providers deferred: upstream gives
+  them no developer-instructions surface (Claude uses a preset).
+- **MLT-49** board drag-and-drop: @dnd-kit pointer drag (6px activation,
+  upstream's own convention), drop = the same guarded `moveIssueTo` as
+  Shift+arrows — ready-gate dialog confirmed firing on a live drop into
+  Ready; browser-verified end-to-end on the real board.
+- **MLT-46** actionable run links: thread refs resolve their environment
+  from loaded thread shells, render the thread title, navigate to the
+  thread view; stale refs toast; worktree paths copy on click —
+  browser-verified.
+
+**Gate:** merged `upstream/main` mid-landing (it had moved — mobile/thread
+work, no tracker collision, clean merge); after merge: `vp check` 0 errors,
+repo typecheck clean, 79 core + 22 server + mount-point tests green.
+
+**For the human reviewer:** 8 issues sit in needs_review with proofs
+(MLT-41/46/49/52/53/55/56/59). Also in triage awaiting you: MLT-40
+(license, D2), MLT-57 (commit↔issue linking — needs a spec; its dupe
+MLT-58 is resolved), MLT-60 (triage agent — wants Phase 3 dispatch),
+MLT-63/64 (your own UI filings). Benign artifacts of live verification:
+extra human `status.changed` round-trips on MLT-57's activity and a test
+worktree link on cancelled MLT-42.
+
+**Handoff:** Phase 3 stays gated on upstream #2829 (still an open draft —
+re-verify at next session start). Next session: either run Prompt 3's gate
+again, or pick further unblocked quick wins (MLT-48 display options and
+MLT-63 real-time updates are the largest of the remaining independent
+items). Working the board as an agent works well through the core command
+surface; the MCP stdio server is the sanctioned path for out-of-repo
+sessions.
+
+### 2026-07-04 — Quick-win batch between Phase 2 and Phase 3 (planning entry, superseded by COMPLETE above)
 
 **Verification at start (§0.2):** Prompt 3's timing gate is CLOSED — upstream
 PR #2829 (orchestration V2) is still an open draft (`state: OPEN, isDraft:
