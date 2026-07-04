@@ -3,13 +3,13 @@
 > Agents: read this at session start; update it before session end (Working
 > Agreement §0). Humans: this is the project's single source of "where are we".
 
-**Last updated:** 2026-07-04 (Phase 0 complete — fork scaffolding + merge guard)
-**Current phase:** 0 done; next up Phase 1 (the board)
+**Last updated:** 2026-07-04 (Phase 1 complete — the board; backlog lives in the tracker)
+**Current phase:** 1 done; next up Phase 2 (agent hands)
 
 ## Phase checklist
 
 - [x] Phase 0 — fork scaffolding (2026-07-04, CI green)
-- [ ] Phase 1 — the board
+- [x] Phase 1 — the board (2026-07-04, 40 issues seeded into space MLT)
 - [ ] Phase 2 — agent hands (MCP)
 - [ ] Phase 3 — policy brain (⛔ gated on upstream #2829 → main)
 - [ ] Phase 4 — rules and the world
@@ -56,7 +56,66 @@ _(agents list discovered work here until Phase 1's tracker can hold it)_
 
 ## Session log
 
-### 2026-07-04 — Phase 1: the board (IN PROGRESS)
+### 2026-07-04 — Phase 1: the board (COMPLETE)
+
+**Done — acceptance checklist (02-PHASE-1):** all items pass.
+
+- Create/edit/move issues across all seeded statuses; comments; labels;
+  priorities; all six relation kinds incl. `discovered_from` — core-enforced
+  (33 core tests) and exercised live in the UI.
+- Board / list / triage / detail views feel native (upstream UI kit,
+  settings-page visual language); keyboard-first: `c` capture, Enter open,
+  arrows move selection, Shift+arrows move an issue between categories.
+- Activity feed renders straight from the event log with true actors — seeded
+  events show `system:phase1-seed`, live edits show `human:deondejongh`,
+  agent-actor test coverage in core.
+- Export → fresh store → import → identical projections + byte-identical
+  re-export, proven by test; rebuild determinism proven by test; the human-only
+  `done` invariant proven by test (agent actor rejected server-side).
+- Context-pack button produces the spec §D pack (verified against clipboard
+  contents); draft-composer prefill implemented via `useHandleNewThread` +
+  `composerDraftStore.setPrompt`, clipboard fallback verified live (no upstream
+  project existed in the test env). Run link attach verified (event + feed).
+- Seed script ran against the real DB: **40 issues in space MLT** (31 parking-lot
+  ideas, 3 phase issues chained `blocked_by`, 4 Phase-4 children via `parent`,
+  license decision in triage). 100 events at seed time.
+- `git diff upstream/main`: only the 4 logged Phase-1 mount points touch
+  upstream files (7 lines total); checker passes with 6 rows (2 pre-existing).
+- `vp check` 0 errors; repo-wide typecheck green; 45 multilinear tests +
+  124 scripts tests green; merge `upstream/main` = "Already up to date".
+- 200-issue jank check: synthetic SBX space in a throwaway DB
+  (`MULTILINEAR_DB_PATH` override), board renders/scrolls/navigates instantly.
+
+**Decisions this session:** D11–D17 (recorded at session start, below) plus:
+adapter maps the authenticated session to actor `{kind: "human", id: <os
+username>}` for Phase 1 (single user; revisit when sessions carry identity);
+read scope for queries, operate scope for commands, mirroring upstream's raw
+routes.
+
+**Follow-ups:** filed in the tracker (dogfooding starts now): MLT-41 "Tracker
+HTTP routes should degrade gracefully if the DB fails to open" — currently the
+adapter layer fails server boot if `~/.multilinear/tracker.db` can't open.
+
+**Notes for the merge cadence:** `apps/web/src/routeTree.gen.ts` is generated —
+on upstream conflicts, take theirs and re-run the web dev server once to
+regenerate (our routes reappear automatically). Same for `pnpm-lock.yaml`
+(reinstall). The UI build-out was delegated to an opus-4.8 subagent against a
+written spec (per AGENTS.md division of labor); reviewed, one bug class fixed
+(detail sections didn't refetch after label/relation/run-link mutations).
+
+**Handoff:** Phase 1 is done and CI-green. Next session runs Prompt 2
+(`PROMPTS.md`) against `multilinear-plan/03-PHASE-2-AGENT-HANDS.md` in a fresh
+session. Practical notes: the tracker's write path is
+`TrackerStore.execute(command, actor)` in `packages/multilinear-core/src/Store.ts`
+— Phase 2's transition whitelist belongs in `decide()` next to the existing
+human-only `done` guard, keyed on `actor.kind` (the pattern is already proven
+by tests). The MCP server should live in `packages/multilinear-server` beside
+the router and reuse the same store service; the adapter
+(`apps/server/src/multilinear/adapter.ts`) is the only file allowed to touch
+upstream internals, and MOUNTPOINTS.md has budget headroom (Phase 1 used its
+4). The seed left Phase 2's issue (MLT-33) in Ready — claim it when you start.
+
+### 2026-07-04 — Phase 1: the board (planning entry, superseded by COMPLETE above)
 
 **Verification at start (§0.2):** `upstream/main` unchanged since Phase 0's merge
 (`multilinear-main` 7 ahead / 0 behind) — end-of-phase merge-guard proof should be
