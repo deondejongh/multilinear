@@ -56,7 +56,81 @@ _(agents list discovered work here until Phase 1's tracker can hold it)_
 
 ## Session log
 
-### 2026-07-04 — Phase 1: the board (COMPLETE)
+### 2026-07-04 — Phase 2: agent hands (planning entry)
+
+**Verification at start (§0.2):** `upstream/main` unchanged since Phase 1
+(0 behind; tip is still #3670 — mobile/thread work, no work-item queue; tripwire
+clear). PR #2829 still an open draft against main (watchlist unchanged; Phase 3
+gate still closed — irrelevant to this phase). MLT-33 confirmed in Ready.
+Codebase recon: upstream hosts an MCP server at `/mcp` via effect's
+`McpServer.layerHttp` with per-provider-session bearer credentials
+(`McpSessionRegistry`) injected into every t3code agent session; effect also
+ships `McpServer.layerStdio` — so both spec'd transports come from the same
+toolkit definition. `yaml@^2.9.0` already in the pnpm catalog (used by
+`@t3tools/shared`).
+
+**Plan (ordered; core safety work inline per AGENTS.md division of labor,
+web UI delegated to an opus-4.8 subagent against a written spec, as Phase 1):**
+
+1. Claim MLT-33: comment + `ready→in_progress` as an agent actor (dogfood).
+2. `@multilinear/core` — the safety layer (tests land with each piece):
+   - New schemas: `ProofOfWork` (summary, not_done, diff_stat, tests, risks,
+     followups_filed, cost), `WorkflowProfile` (frontmatter shape + trust
+     tiers + allowed_transitions), ready-gate lint (`ReadyGate.ts`, browser-
+     safe so the web UI reuses it), `SecretScan.ts` (pattern list + scanner).
+   - New events: `proof.attached`, `input.requested` (Agent Blocked),
+     `duplicate.proposed`, `duplicate.resolved`, `cost.recorded`.
+   - New commands: `proof.attach`, `input.request`, `duplicate.resolve`
+     (human-only), `cost.log`.
+   - Transition whitelist in `decide()` keyed on `actor.kind === "agent"`:
+     allowed `triage→backlog`, `backlog→ready` (ready-gate enforced),
+     `ready→in_progress`, `in_progress→needs_review` (proof required since
+     entering in_progress); agent `→duplicate` becomes a `duplicate.proposed`
+     flag, never a status change; everything else rejected server-side —
+     including the standing `done` ban for all non-human actors.
+   - Secret-pattern scan over agent comments/questions/proofs in `decide()`
+     (reject before persisting — invariant 5).
+   - Projections: `proofs` table; `issues` gains `agent_blocked`,
+     `pending_duplicate_status_id`, `in_progress_since_event`. Projection
+     schema versioning via `PRAGMA user_version`: on mismatch, drop projection
+     tables and replay the event log (projections are disposable; the events
+     table never changes shape).
+   - Store queries: `listReadyIssues` (ready + no open blockers),
+     short-id → issue resolution for MCP ergonomics.
+3. Context pack v2 (`ContextPack.ts`): profile prompt body + issue +
+   relations + compacted discussion (last N verbatim, one-liners for older).
+4. `Api.ts`: new queries (`issues.ready`, `profiles.list`), `IssueSummary`/
+   `IssueFilter`/`IssueDetail` extensions (agentBlocked, pendingDuplicate,
+   proofs).
+5. Workflow profiles v0 (`@multilinear/server`): loader for
+   `<repo>/.multilinear/profiles/*.md` (yaml frontmatter, schema validation,
+   fs-watch hot reload, loud failures) + three starters (implementer,
+   bug-fixer, spike) written into this repo's `.multilinear/profiles/`.
+6. MCP server (`@multilinear/server/src/mcp/`): toolkit with the eight `ml_*`
+   tools; actor identity behind a small `MultilinearMcpActor` service;
+   standalone stdio entry point (first-class: env/flag actor identity,
+   same `~/.multilinear/tracker.db`, WAL busy-timeout for cross-process use);
+   hosted registration exported for the adapter.
+7. Adapter + mount point: register the toolkit into upstream's `/mcp` server
+   (edit in `apps/server/src/mcp/McpHttpServer.ts`, logged in MOUNTPOINTS.md);
+   actor = `t3code:thread/<threadId>` from `McpInvocationContext`; share one
+   `TrackerStore` layer between routes and MCP.
+8. Web UI (delegated, then reviewed): Agent Blocked badge + filter, pending-
+   duplicate badge + human confirm/reject, proof rendering in thread +
+   activity feed, ready-gate warning dialog on human moves, context-pack v2
+   with profile picker, issue template affordance.
+9. Docs: `docs/proof-of-work.md` (publishable convention) + the scripted
+   end-to-end walkthrough under `docs/`, executed for real (scratch repo, raw
+   Claude Code session against the stdio server).
+10. Acceptance pass: checklist re-read, `vp check` + typecheck + tests, mount
+    audit vs `upstream/main`, merge upstream (expected no-op), CI green; land
+    the plane — attach proof to MLT-33 and move it to `needs_review` via our
+    own MCP server.
+
+Self-review against 01 §7: all new code in our packages/dirs; one new mount
+point planned (McpHttpServer.ts, logged); no upstream migrations; whitelist +
+done-ban + secret scan enforced in core command validation keyed on actor kind
+(invariants 2, 3, 5); core still imports zero t3code (invariant 7). ✓
 
 **Done — acceptance checklist (02-PHASE-1):** all items pass.
 
