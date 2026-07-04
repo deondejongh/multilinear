@@ -40,6 +40,7 @@ import { Textarea } from "~/components/ui/textarea";
 import { toastManager } from "~/components/ui/toast";
 import { formatRelativeTimeLabel } from "~/timestampFormat";
 import { mlGetIssue, mlIssueActivity, mlListStatuses, newEntityId } from "../api";
+import { subscribeLiveUpdates } from "../liveUpdates";
 import { formatCostTotals, ISSUE_TYPE_OPTIONS, ISSUE_TYPE_LABELS } from "../presentation";
 import { useMultilinearStore } from "../store";
 import { useStartAgentFromIssue } from "../useStartAgentFromIssue";
@@ -85,6 +86,9 @@ export function IssueDetail({ issueRef }: { issueRef: string }) {
   const [selectedProfile, setSelectedProfile] = useState<string | null>(null);
 
   const loadedSpaceRef = useRef<string | null>(null);
+  // Title of the last loaded detail — lets background refreshes (MLT-63) tell
+  // a user's in-progress title edit apart from a remote change.
+  const loadedTitleRef = useRef<string | null>(null);
 
   // The route param may be a short-id (MLT-55); commands need the canonical
   // ULID, which the loaded detail carries. Every mutation below can only fire
@@ -99,7 +103,13 @@ export function IssueDetail({ issueRef }: { issueRef: string }) {
       ]);
       setDetail(issueResult.detail);
       setActivity(activityResult.entries);
-      setTitleDraft(issueResult.detail.issue.title);
+      // Overwrite the draft only when the server title actually changed;
+      // otherwise a live refresh would clobber a half-typed edit (MLT-63).
+      const loadedTitle = issueResult.detail.issue.title;
+      if (loadedTitleRef.current !== loadedTitle) {
+        loadedTitleRef.current = loadedTitle;
+        setTitleDraft(loadedTitle);
+      }
       if (loadedSpaceRef.current !== issueResult.detail.space.id) {
         loadedSpaceRef.current = issueResult.detail.space.id;
         const statusResult = await mlListStatuses(issueResult.detail.space.id);
@@ -117,6 +127,11 @@ export function IssueDetail({ issueRef }: { issueRef: string }) {
     setLoading(true);
     void load();
   }, [load]);
+
+  // Live updates (MLT-63): silent refetch when the event log moves — no
+  // loading flicker; description/comment drafts are separate state and the
+  // title draft is guarded in `load`.
+  useEffect(() => subscribeLiveUpdates(() => void load()), [load]);
 
   // Run a command, then refetch this issue's detail + activity (and the board).
   const mutate = useCallback(

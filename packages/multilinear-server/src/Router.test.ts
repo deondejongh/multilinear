@@ -4,7 +4,12 @@ import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 
 import type { Actor, IssueId, SpaceId } from "@multilinear/core/model";
-import { CommandResponse, IssueGetResult, IssuesListResult } from "@multilinear/core/api";
+import {
+  CommandResponse,
+  EventsHeadResult,
+  IssueGetResult,
+  IssuesListResult,
+} from "@multilinear/core/api";
 import { TrackerStore } from "@multilinear/core/store";
 import { makeUlidGenerator } from "@multilinear/core/ulid";
 
@@ -27,6 +32,7 @@ const makeIds = () => {
 const decodeCommandResponse = Schema.decodeUnknownEffect(CommandResponse);
 const decodeIssuesList = Schema.decodeUnknownEffect(IssuesListResult);
 const decodeIssueGet = Schema.decodeUnknownEffect(IssueGetResult);
+const decodeEventsHead = Schema.decodeUnknownEffect(EventsHeadResult);
 
 const decodeUnknownJson = Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown));
 
@@ -83,6 +89,28 @@ describe("multilinear router handlers", () => {
 
       const activityByShortId = yield* handleQuery({ type: "issue.activity", issueId: "mlt-1" });
       assert.strictEqual(activityByShortId.status, 200);
+    }).pipe(
+      Effect.provide(Layer.mergeAll(TrackerStore.layerMemory, ProfileLoader.layerStatic([]))),
+    ),
+  );
+
+  it.effect("events.head reports the log head and moves with writes (MLT-63)", () =>
+    Effect.gen(function* () {
+      const ids = makeIds();
+
+      const empty = yield* handleQuery({ type: "events.head" });
+      assert.strictEqual(empty.status, 200);
+      const emptyHead = yield* decodeEventsHead(yield* responseJson(empty));
+      assert.strictEqual(emptyHead.head, 0);
+
+      const spaceId = ids.next() as SpaceId;
+      yield* handleCommand(
+        { command: { type: "space.create", spaceId, name: "Multilinear", key: "MLT" } },
+        human,
+      );
+      const after = yield* handleQuery({ type: "events.head" });
+      const afterHead = yield* decodeEventsHead(yield* responseJson(after));
+      assert.isAbove(afterHead.head, 0);
     }).pipe(
       Effect.provide(Layer.mergeAll(TrackerStore.layerMemory, ProfileLoader.layerStatic([]))),
     ),

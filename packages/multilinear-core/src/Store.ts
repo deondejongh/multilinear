@@ -276,6 +276,11 @@ export class TrackerStore extends Context.Service<
       ReadonlyArray<StoredTrackerEvent>,
       TrackerStorageError
     >;
+    /**
+     * Highest event `seq` (0 when empty) — a cheap change probe for polling
+     * clients (MLT-63). Reads the database so cross-process writes are seen.
+     */
+    readonly eventsHead: () => Effect.Effect<number, TrackerStorageError>;
     /** Replay the event log into freshly wiped projection tables. */
     readonly rebuild: () => Effect.Effect<void, TrackerStorageError>;
     /** JSONL of the full event log, one encoded event per line, append order. */
@@ -321,6 +326,7 @@ export class TrackerStore extends Context.Service<
       getIssue: () => failure,
       listIssueEvents: () => failure,
       listAllEvents: () => failure,
+      eventsHead: () => failure,
       rebuild: () => failure,
       exportJsonl: () => failure,
       importJsonl: () => failure,
@@ -1540,6 +1546,13 @@ const makeTrackerStore = Effect.fnUntraced(function* (config: TrackerStoreConfig
     return yield* decodeStoredRows(rows);
   });
 
+  const eventsHead = Effect.fn("TrackerStore.eventsHead")(function* () {
+    const row = yield* run("events-head", () =>
+      get("SELECT COALESCE(MAX(seq), 0) AS head FROM events"),
+    );
+    return (row?.head as number) ?? 0;
+  });
+
   const wipeProjections = () => {
     for (const table of PROJECTION_TABLES) {
       db.exec(`DELETE FROM ${table}`);
@@ -1642,6 +1655,7 @@ const makeTrackerStore = Effect.fnUntraced(function* (config: TrackerStoreConfig
     getIssue,
     listIssueEvents,
     listAllEvents,
+    eventsHead,
     rebuild,
     exportJsonl,
     importJsonl,

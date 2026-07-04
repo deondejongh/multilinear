@@ -17,6 +17,7 @@ import {
   CommandRequest,
   CommandResponse,
   ErrorResponse,
+  EventsHeadResult,
   IssueActivityResult,
   IssueGetResult,
   IssuesListResult,
@@ -145,6 +146,10 @@ export const handleQuery = Effect.fnUntraced(function* (body: unknown) {
       case "issues.ready": {
         const issues = yield* store.listReadyIssues(query.spaceId);
         return yield* HttpServerResponse.schemaJson(IssuesReadyResult)({ issues });
+      }
+      case "events.head": {
+        const head = yield* store.eventsHead();
+        return yield* HttpServerResponse.schemaJson(EventsHeadResult)({ head });
       }
       case "profiles.list": {
         const snapshot = yield* profileLoader.current();

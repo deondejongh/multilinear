@@ -16,6 +16,7 @@ import {
 import { SidebarInset } from "~/components/ui/sidebar";
 import { ToggleGroup, ToggleGroupItem } from "~/components/ui/toggle-group";
 import { cn } from "~/lib/utils";
+import { subscribeLiveUpdates } from "../multilinear/liveUpdates";
 import { QuickCaptureDialog } from "../multilinear/components/QuickCaptureDialog";
 import { SpaceCreateDialog } from "../multilinear/components/SpaceCreateDialog";
 import { TrackerNav } from "../multilinear/components/TrackerNav";
@@ -45,6 +46,10 @@ function MultilinearLayout() {
     void refresh();
     void loadProfiles();
   }, [refresh, loadProfiles]);
+
+  // Live updates (MLT-63): refetch board data whenever the event log moves,
+  // including writes from other processes (stdio MCP agents).
+  useEffect(() => subscribeLiveUpdates(() => void refresh()), [refresh]);
 
   useTrackerKeys({
     enabled: true,

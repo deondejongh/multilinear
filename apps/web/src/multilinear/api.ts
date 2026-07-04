@@ -14,6 +14,7 @@ import {
   CommandRequest,
   CommandResponse,
   ErrorResponse,
+  EventsHeadResult,
   IssueActivityResult,
   IssueGetResult,
   IssuesListResult,
@@ -110,6 +111,7 @@ const runIssuesReady = makeQueryRunner(IssuesReadyResult);
 const runIssueGet = makeQueryRunner(IssueGetResult);
 const runIssueActivity = makeQueryRunner(IssueActivityResult);
 const runProfilesList = makeQueryRunner(ProfilesListResult);
+const runEventsHead = makeQueryRunner(EventsHeadResult);
 
 export const mlListSpaces = () => runSpacesList({ type: "spaces.list" });
 
@@ -133,6 +135,9 @@ export const mlIssueActivity = (issueId: string) =>
   runIssueActivity({ type: "issue.activity", issueId });
 
 export const mlListProfiles = () => runProfilesList({ type: "profiles.list" });
+
+/** Cheap change probe: highest event seq, 0 when empty (MLT-63). */
+export const mlEventsHead = () => runEventsHead({ type: "events.head" });
 
 const ulid = makeUlidGenerator((bytes) =>
   globalThis.crypto.getRandomValues(bytes as Uint8Array<ArrayBuffer>),

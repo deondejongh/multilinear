@@ -670,6 +670,23 @@ describe("TrackerStore", () => {
     );
   });
 
+  describe("events head", () => {
+    it.effect("is 0 on an empty store and advances with every appended event", () =>
+      provided(
+        Effect.gen(function* () {
+          const store = yield* TrackerStore;
+          assert.strictEqual(yield* store.eventsHead(), 0);
+          const fixture = yield* setup();
+          const afterSpace = yield* store.eventsHead();
+          assert.isAbove(afterSpace, 0);
+          yield* createIssue(fixture);
+          const afterIssue = yield* store.eventsHead();
+          assert.isAbove(afterIssue, afterSpace);
+        }),
+      ),
+    );
+  });
+
   describe("export → import round-trip", () => {
     it.effect("export, wipe (fresh store), import yields identical projections", () =>
       Effect.gen(function* () {

@@ -88,6 +88,19 @@ export const IssuesReadyResult = Schema.Struct({
   issues: Schema.Array(IssueSummary),
 });
 
+/**
+ * Head of the event log (MLT-63): the highest `seq`, 0 when empty. A cheap
+ * change probe — clients poll it and refetch when it moves. Derived from the
+ * database rather than an in-process signal so writes from other processes
+ * (the stdio MCP server) are seen too.
+ */
+export const EventsHeadQuery = Schema.Struct({
+  type: Schema.Literal("events.head"),
+});
+export const EventsHeadResult = Schema.Struct({
+  head: Schema.Number,
+});
+
 /** Workflow profiles loaded from the active repo (03-PHASE-2 §D). */
 export const ProfilesListQuery = Schema.Struct({
   type: Schema.Literal("profiles.list"),
@@ -106,6 +119,7 @@ export const TrackerQuery = Schema.Union([
   IssueGetQuery,
   IssueActivityQuery,
   IssuesReadyQuery,
+  EventsHeadQuery,
   ProfilesListQuery,
 ]);
 export type TrackerQuery = typeof TrackerQuery.Type;
