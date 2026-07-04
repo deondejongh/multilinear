@@ -31,7 +31,10 @@ export function IssueCard({
       onClick={onSelect}
       onDoubleClick={onOpen}
       className={cn(
-        "flex w-full flex-col gap-2 rounded-lg border bg-card p-2.5 text-left outline-none transition-shadow",
+        // The theme's --card is within 2% of --background in both modes, so
+        // cards rely on an explicit elevated fill: shadow on light, a
+        // lightened translucent surface on dark (MLT-64).
+        "flex w-full flex-col gap-2 rounded-lg border bg-card p-2.5 text-left shadow-xs outline-none transition-shadow dark:bg-white/[0.07] dark:shadow-none",
         "hover:border-foreground/20",
         selected ? "border-primary/60 ring-2 ring-primary/40" : "border-border",
       )}

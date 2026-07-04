@@ -61,8 +61,13 @@ function DroppableColumn({ group, children }: { group: CategoryGroup; children: 
     <div
       ref={setNodeRef}
       className={cn(
-        "flex h-full w-72 shrink-0 flex-col rounded-lg border bg-muted/30 transition-colors",
-        isOver ? "border-primary/50 bg-primary/5" : "border-border",
+        // Recessed column tint that stays visible against the canvas in both
+        // modes — bg-muted/30 was a ~1% tint, indistinguishable from the
+        // background (MLT-64).
+        "flex h-full w-72 shrink-0 flex-col rounded-lg border transition-colors",
+        isOver
+          ? "border-primary/50 bg-primary/10"
+          : "border-border bg-foreground/[0.04] dark:bg-black/25",
       )}
     >
       {children}

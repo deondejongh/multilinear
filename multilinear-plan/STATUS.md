@@ -62,6 +62,40 @@ _(agents list discovered work here until Phase 1's tracker can hold it)_
 
 ## Session log
 
+### 2026-07-05 — Quick-win batch #2 (planning entry)
+
+**Verification at start (§0.2):** Prompt 3's timing gate is still CLOSED —
+upstream PR #2829 is `state: OPEN, isDraft: true` against `main` (checked via
+`gh` this session), so per the human's instruction this session works further
+unblocked quick wins instead of Phase 3. `upstream/main` has moved 1 commit
+since the last merge — will inspect for the tripwire and merge at session end.
+
+**Slate (from the previous handoff's suggestions + the human's own triage
+filings; all independent, none blocked):**
+
+1. MLT-64 — board card colour contrast (human filing; card ≈ column ≈ canvas)
+2. MLT-63 — real-time board/list/detail updates (human filing; no manual
+   refresh; stays inside our `/api/multilinear/*` surface, zero new mounts)
+3. MLT-47 + MLT-51 — space→repo/project mapping, consumed by the Start-agent
+   button and the profile loader (one design serving both; the same mapping
+   Phase 3's dispatcher needs)
+4. MLT-48 — board/list display options: filters, grouping, ordering, shown
+   properties, with per-user client persistence first (per issue description)
+
+Skipped deliberately (same reasons as last batch): MLT-40 (human decision),
+MLT-57 (needs a spec), MLT-50 (human said live with it first), MLT-60 (wants
+Phase 3 dispatch), MLT-19 (wants desktop-app global hotkey).
+
+**Method:** unchanged from batch #1 — every fix through the tracker as agent
+`claude-code:quick-wins-2` (claim → in_progress → proof → needs_review) via
+the core command surface; one coherent commit per issue (one for the 47+51
+pair); `vp check` + typecheck + tests before each lands; land the plane per §0.
+
+Self-review against 01 §7: all planned work lives in our packages/routes/
+components; expected new mount points: none (MLT-47 may need the Start-agent
+integration but that code is already ours in `apps/web/src/multilinear/`);
+no upstream migrations; core imports no t3code. ✓
+
 ### 2026-07-05 — Quick-win batch between Phase 2 and Phase 3 (COMPLETE)
 
 **Done — all 8 slated issues, each claimed → in_progress → proof →
