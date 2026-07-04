@@ -78,7 +78,8 @@ export function TriageList({ issues }: { issues: ReadonlyArray<IssueSummary> }) 
         setSelectedId(issues[prev]?.id ?? null);
       } else if (event.key === "Enter" && selectedId) {
         event.preventDefault();
-        goToIssue(selectedId);
+        const selected = issues.find((issue) => issue.id === selectedId);
+        goToIssue(selected?.shortId ?? selectedId);
       }
     };
     document.addEventListener("keydown", onKeyDown);
@@ -108,7 +109,7 @@ export function TriageList({ issues }: { issues: ReadonlyArray<IssueSummary> }) 
             issue={issue}
             selected={issue.id === selectedId}
             onSelect={() => setSelectedId(issue.id)}
-            onOpen={() => goToIssue(issue.id)}
+            onOpen={() => goToIssue(issue.shortId)}
             trailing={
               <Menu>
                 <MenuTrigger

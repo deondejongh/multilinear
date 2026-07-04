@@ -187,7 +187,7 @@ function MultilinearIndex() {
         case "Enter": {
           if (selectedEntry) {
             event.preventDefault();
-            goToIssue(selectedEntry.issue.id);
+            goToIssue(selectedEntry.issue.shortId);
           }
           break;
         }
@@ -208,7 +208,7 @@ function MultilinearIndex() {
   ]);
 
   const onSelect = useCallback((issue: IssueSummary) => setSelectedId(issue.id), []);
-  const onOpen = useCallback((issue: IssueSummary) => goToIssue(issue.id), [goToIssue]);
+  const onOpen = useCallback((issue: IssueSummary) => goToIssue(issue.shortId), [goToIssue]);
 
   if (loading && !hasLoadedOnce) {
     return (

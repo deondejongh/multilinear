@@ -63,7 +63,7 @@ function SidebarSection({ title, children }: { title: string; children: React.Re
   );
 }
 
-export function IssueDetail({ issueId }: { issueId: IssueId }) {
+export function IssueDetail({ issueRef }: { issueRef: string }) {
   const runCommand = useMultilinearStore((state) => state.runCommand);
   const storeLabels = useMultilinearStore((state) => state.labels);
   const profiles = useMultilinearStore((state) => state.profiles);
@@ -86,11 +86,16 @@ export function IssueDetail({ issueId }: { issueId: IssueId }) {
 
   const loadedSpaceRef = useRef<string | null>(null);
 
+  // The route param may be a short-id (MLT-55); commands need the canonical
+  // ULID, which the loaded detail carries. Every mutation below can only fire
+  // once the detail has rendered, so the fallback cast is never observed.
+  const issueId = detail?.issue.id ?? (issueRef as IssueId);
+
   const load = useCallback(async () => {
     try {
       const [issueResult, activityResult] = await Promise.all([
-        mlGetIssue(issueId),
-        mlIssueActivity(issueId),
+        mlGetIssue(issueRef),
+        mlIssueActivity(issueRef),
       ]);
       setDetail(issueResult.detail);
       setActivity(activityResult.entries);
@@ -106,7 +111,7 @@ export function IssueDetail({ issueId }: { issueId: IssueId }) {
     } finally {
       setLoading(false);
     }
-  }, [issueId]);
+  }, [issueRef]);
 
   useEffect(() => {
     setLoading(true);

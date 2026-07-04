@@ -74,6 +74,15 @@ describe("multilinear router handlers", () => {
       const detail = yield* handleQuery({ type: "issue.get", issueId });
       const decoded = yield* decodeIssueGet(yield* responseJson(detail));
       assert.strictEqual(decoded.detail.issue.title, "Wire it up");
+
+      // Short-ids resolve to the same issue (MLT-55).
+      const byShortId = yield* handleQuery({ type: "issue.get", issueId: "MLT-1" });
+      assert.strictEqual(byShortId.status, 200);
+      const decodedShort = yield* decodeIssueGet(yield* responseJson(byShortId));
+      assert.strictEqual(decodedShort.detail.issue.id, issueId);
+
+      const activityByShortId = yield* handleQuery({ type: "issue.activity", issueId: "mlt-1" });
+      assert.strictEqual(activityByShortId.status, 200);
     }).pipe(
       Effect.provide(Layer.mergeAll(TrackerStore.layerMemory, ProfileLoader.layerStatic([]))),
     ),
@@ -118,6 +127,10 @@ describe("multilinear router handlers", () => {
       const ids = makeIds();
       const response = yield* handleQuery({ type: "issue.get", issueId: ids.next() });
       assert.strictEqual(response.status, 404);
+
+      // Unknown short-ids too — resolution failure is a 404, not a 400.
+      const byShortId = yield* handleQuery({ type: "issue.get", issueId: "MLT-999" });
+      assert.strictEqual(byShortId.status, 404);
     }).pipe(
       Effect.provide(Layer.mergeAll(TrackerStore.layerMemory, ProfileLoader.layerStatic([]))),
     ),

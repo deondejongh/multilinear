@@ -126,9 +126,10 @@ export const mlListReadyIssues = (spaceId?: SpaceId) =>
     spaceId === undefined ? { type: "issues.ready" } : { type: "issues.ready", spaceId },
   );
 
-export const mlGetIssue = (issueId: IssueId) => runIssueGet({ type: "issue.get", issueId });
+/** `issueId` may be a canonical ULID or a short-id like `MLT-7` (MLT-55). */
+export const mlGetIssue = (issueId: string) => runIssueGet({ type: "issue.get", issueId });
 
-export const mlIssueActivity = (issueId: IssueId) =>
+export const mlIssueActivity = (issueId: string) =>
   runIssueActivity({ type: "issue.activity", issueId });
 
 export const mlListProfiles = () => runProfilesList({ type: "profiles.list" });

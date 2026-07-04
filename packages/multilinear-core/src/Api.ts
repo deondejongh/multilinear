@@ -9,7 +9,7 @@ import * as Schema from "effect/Schema";
 import { CommandRejectedError, TrackerCommand } from "./Commands.ts";
 import { ImportRejectedError, IssueNotFoundError, TrackerStorageError } from "./Errors.ts";
 import { StoredTrackerEvent, TrackerEvent } from "./Events.ts";
-import { IssueId, Label, Space, SpaceId, Status } from "./Model.ts";
+import { Label, Space, SpaceId, Status, TrimmedNonEmptyString } from "./Model.ts";
 import { WorkflowProfile } from "./Profile.ts";
 import { IssueDetail, IssueFilter, IssueSummary } from "./Views.ts";
 
@@ -60,9 +60,12 @@ export const IssuesListResult = Schema.Struct({
   issues: Schema.Array(IssueSummary),
 });
 
+/** Issue reference: canonical ULID or short-id like `MLT-7`, resolved server-side. */
+export const IssueRef = TrimmedNonEmptyString;
+
 export const IssueGetQuery = Schema.Struct({
   type: Schema.Literal("issue.get"),
-  issueId: IssueId,
+  issueId: IssueRef,
 });
 export const IssueGetResult = Schema.Struct({
   detail: IssueDetail,
@@ -70,7 +73,7 @@ export const IssueGetResult = Schema.Struct({
 
 export const IssueActivityQuery = Schema.Struct({
   type: Schema.Literal("issue.activity"),
-  issueId: IssueId,
+  issueId: IssueRef,
 });
 export const IssueActivityResult = Schema.Struct({
   entries: Schema.Array(StoredTrackerEvent),

@@ -161,7 +161,7 @@ function RelationItem({
     <div className="group flex items-center gap-2 rounded-sm px-1 py-1 hover:bg-accent/50">
       <button
         type="button"
-        onClick={() => goToIssue(relation.otherIssueId as IssueId)}
+        onClick={() => goToIssue(relation.otherShortId)}
         className="flex min-w-0 flex-1 items-center gap-2 text-left outline-none"
       >
         <span className="font-mono text-[11px] text-muted-foreground">{relation.otherShortId}</span>

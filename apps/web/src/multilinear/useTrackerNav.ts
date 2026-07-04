@@ -2,8 +2,6 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useCallback } from "react";
 
-import type { IssueId } from "@multilinear/core/model";
-
 export function useTrackerNav() {
   const navigate = useNavigate();
 
@@ -15,9 +13,11 @@ export function useTrackerNav() {
     void navigate({ to: "/multilinear/triage" });
   }, [navigate]);
 
+  // Accepts a ULID or a short-id like `MLT-7`; prefer short-ids so shared
+  // URLs stay readable (the detail route resolves both, MLT-55).
   const goToIssue = useCallback(
-    (issueId: IssueId) => {
-      void navigate({ to: "/multilinear/issue/$issueId", params: { issueId } });
+    (issueRef: string) => {
+      void navigate({ to: "/multilinear/issue/$issueId", params: { issueId: issueRef } });
     },
     [navigate],
   );

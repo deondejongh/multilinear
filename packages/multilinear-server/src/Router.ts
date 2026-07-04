@@ -30,7 +30,7 @@ import {
   TrackerQuery,
 } from "@multilinear/core/api";
 import type { Actor } from "@multilinear/core/model";
-import { TrackerStore } from "@multilinear/core/store";
+import { IssueNotFoundError, TrackerStore } from "@multilinear/core/store";
 
 import { ProfileLoader } from "./Profiles.ts";
 
@@ -103,6 +103,15 @@ export const handleQuery = Effect.fnUntraced(function* (body: unknown) {
     Effect.mapError((error) => new MultilinearHttpError({ status: 400, body: String(error) })),
   );
 
+  // Issue queries accept a ULID or a short-id like `MLT-7` (MLT-55).
+  const resolveIssueRef = Effect.fnUntraced(function* (ref: string) {
+    const issueId = yield* store.resolveIssueId(ref);
+    if (issueId === undefined) {
+      return yield* new IssueNotFoundError({ issueId: ref });
+    }
+    return issueId;
+  });
+
   const respond = Effect.fnUntraced(function* () {
     switch (query.type) {
       case "spaces.list": {
@@ -122,11 +131,11 @@ export const handleQuery = Effect.fnUntraced(function* (body: unknown) {
         return yield* HttpServerResponse.schemaJson(IssuesListResult)({ issues });
       }
       case "issue.get": {
-        const detail = yield* store.getIssue(query.issueId);
+        const detail = yield* store.getIssue(yield* resolveIssueRef(query.issueId));
         return yield* HttpServerResponse.schemaJson(IssueGetResult)({ detail });
       }
       case "issue.activity": {
-        const entries = yield* store.listIssueEvents(query.issueId);
+        const entries = yield* store.listIssueEvents(yield* resolveIssueRef(query.issueId));
         return yield* HttpServerResponse.schemaJson(IssueActivityResult)({ entries });
       }
       case "issues.ready": {
