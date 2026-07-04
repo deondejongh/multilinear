@@ -11,6 +11,7 @@
  */
 import * as NodeOS from "node:os";
 
+import * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
@@ -30,6 +31,12 @@ import * as EnvironmentAuth from "../auth/EnvironmentAuth.ts";
 
 export const resolveMultilinearDbPath = Effect.fnUntraced(function* () {
   const path = yield* Path.Path;
+  // Override for tests/sandboxing (e.g. the 200-issue jank check against a
+  // throwaway DB); defaults to STATUS D3's location.
+  const override = yield* Config.string("MULTILINEAR_DB_PATH").pipe(Config.withDefault(""));
+  if (override.trim() !== "") {
+    return override;
+  }
   return path.join(NodeOS.homedir(), ".multilinear", "tracker.db");
 });
 
