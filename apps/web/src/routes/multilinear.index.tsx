@@ -92,12 +92,10 @@ function MultilinearIndex() {
   const guardRef = useRef(readyGate.guard);
   guardRef.current = readyGate.guard;
 
-  const shiftIssueByCategory = useCallback(async (issue: IssueSummary, direction: 1 | -1) => {
-    const currentIndex = STATUS_CATEGORIES.indexOf(issue.category);
-    const targetIndex = currentIndex + direction;
-    if (targetIndex < 0 || targetIndex >= STATUS_CATEGORIES.length) return;
-    const target = STATUS_CATEGORIES[targetIndex];
-    if (!target) return;
+  // Shared by keyboard Shift+arrows and board drag-and-drop (MLT-49): both
+  // issue the same `status.change`, behind the same ready-gate guard.
+  const moveIssueTo = useCallback(async (issue: IssueSummary, target: StatusCategory) => {
+    if (target === issue.category) return;
 
     const runMove = async () => {
       const result = await moverRef.current({
@@ -126,6 +124,16 @@ function MultilinearIndex() {
     }
     await runMove();
   }, []);
+
+  const shiftIssueByCategory = useCallback(
+    async (issue: IssueSummary, direction: 1 | -1) => {
+      const targetIndex = STATUS_CATEGORIES.indexOf(issue.category) + direction;
+      if (targetIndex < 0 || targetIndex >= STATUS_CATEGORIES.length) return;
+      const target = STATUS_CATEGORIES[targetIndex];
+      if (target) await moveIssueTo(issue, target);
+    },
+    [moveIssueTo],
+  );
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -221,7 +229,13 @@ function MultilinearIndex() {
   return (
     <>
       {view === "board" ? (
-        <BoardView groups={groups} selectedId={selectedId} onSelect={onSelect} onOpen={onOpen} />
+        <BoardView
+          groups={groups}
+          selectedId={selectedId}
+          onSelect={onSelect}
+          onOpen={onOpen}
+          onDropIssue={(issue, target) => void moveIssueTo(issue, target)}
+        />
       ) : (
         <ListView groups={groups} selectedId={selectedId} onSelect={onSelect} onOpen={onOpen} />
       )}
