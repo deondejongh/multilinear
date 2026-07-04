@@ -111,6 +111,64 @@ describe("multilinear MCP toolkit", () => {
     }).pipe(Effect.provide(layer)),
   );
 
+  it.effect("ml_list_issues filters by category, label, search, and agent_blocked", () =>
+    Effect.gen(function* () {
+      const { store, spaceId } = yield* seed(["triage", "backlog", "ready"]);
+      // Fresh generators repeat the seed's deterministic sequence — skip past it.
+      const ids = makeIds();
+      for (let skip = 0; skip < 8; skip += 1) ids.next();
+      // Label the triage issue so the name→label filter has a hit.
+      const labelId = ids.next() as never;
+      yield* store.execute(
+        { type: "label.create", labelId, spaceId, name: "infra", color: "#ff8800" },
+        human,
+      );
+      const triageId = (yield* store.resolveIssueId("MLT-1")) as never;
+      yield* store.execute({ type: "label.add", issueId: triageId, labelId }, human);
+
+      const all = (yield* callTool("ml_list_issues", { space: "MLT" })) as {
+        issues: ReadonlyArray<{ id: string; category: string }>;
+        truncated: boolean;
+      };
+      assert.strictEqual(all.issues.length, 3);
+      assert.isFalse(all.truncated);
+
+      const backlog = (yield* callTool("ml_list_issues", {
+        space: "MLT",
+        status_category: "backlog",
+      })) as { issues: ReadonlyArray<{ category: string }> };
+      assert.deepStrictEqual(
+        backlog.issues.map((issue) => issue.category),
+        ["backlog"],
+      );
+
+      const labelled = (yield* callTool("ml_list_issues", { label: "Infra" })) as {
+        issues: ReadonlyArray<{ id: string; labels: ReadonlyArray<string> }>;
+      };
+      assert.deepStrictEqual(
+        labelled.issues.map((issue) => issue.id),
+        ["MLT-1"],
+      );
+
+      const searched = (yield* callTool("ml_list_issues", { search: "mlt-2" })) as {
+        issues: ReadonlyArray<{ id: string }>;
+      };
+      assert.deepStrictEqual(
+        searched.issues.map((issue) => issue.id),
+        ["MLT-2"],
+      );
+
+      const blocked = (yield* callTool("ml_list_issues", { agent_blocked: true })) as {
+        issues: ReadonlyArray<{ id: string }>;
+      };
+      assert.deepStrictEqual(blocked.issues, []);
+
+      const badLabel = yield* callToolFailure("ml_list_issues", { label: "nope" });
+      assert.include(badLabel.reason ?? "", 'unknown label "nope"');
+      assert.include(badLabel.reason ?? "", "infra");
+    }).pipe(Effect.provide(layer)),
+  );
+
   it.effect("unknown refs come back as agent-readable errors", () =>
     Effect.gen(function* () {
       yield* seed([]);

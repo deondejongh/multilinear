@@ -20,6 +20,7 @@ import type {
   Actor,
   CommentId,
   IssueId,
+  LabelId,
   ProofId,
   RelationId,
   SpaceId,
@@ -80,6 +81,12 @@ const IssueCard = Schema.Struct({
 
 const ListReadyResult = Schema.Struct({
   issues: Schema.Array(IssueCard),
+});
+
+const ListIssuesResult = Schema.Struct({
+  issues: Schema.Array(IssueCard),
+  /** True when more matched than the cap; narrow the filters. */
+  truncated: Schema.Boolean,
 });
 
 const IssueRelation = Schema.Struct({
@@ -165,6 +172,28 @@ export const MlListReady = Tool.make("ml_list_ready", {
   dependencies,
 })
   .annotate(Tool.Title, "List ready issues")
+  .annotate(Tool.Readonly, true)
+  .annotate(Tool.Idempotent, true)
+  .annotate(Tool.Destructive, false);
+
+/** Cards returned per `ml_list_issues` call; MLT-59 keeps pagination out of scope. */
+const LIST_ISSUES_CAP = 100;
+
+export const MlListIssues = Tool.make("ml_list_issues", {
+  description:
+    "Browse the board: list issues across every status, with filters. This is THE way to read the tracker — never query the SQLite file directly (projection tables are versioned and disposable). Filters combine with AND: `space` is a space key like `MLT`; `status_category` one of triage/backlog/ready/in_progress/needs_review/done/cancelled/duplicate; `label` a label name; `search` a case-insensitive substring of title or short-id; `agent_blocked: true` selects issues waiting on human input. Returns the same compact cards as ml_list_ready, capped at 100 (`truncated` tells you to narrow).",
+  parameters: Schema.Struct({
+    space: Schema.optional(Schema.String),
+    status_category: Schema.optional(StatusCategory),
+    label: Schema.optional(Schema.String),
+    search: Schema.optional(Schema.String),
+    agent_blocked: Schema.optional(Schema.Boolean),
+  }),
+  success: ListIssuesResult,
+  failure: MlToolError,
+  dependencies,
+})
+  .annotate(Tool.Title, "List issues")
   .annotate(Tool.Readonly, true)
   .annotate(Tool.Idempotent, true)
   .annotate(Tool.Destructive, false);
@@ -275,6 +304,7 @@ export const MlLogCost = Tool.make("ml_log_cost", {
 
 export const MultilinearToolkit = Toolkit.make(
   MlListReady,
+  MlListIssues,
   MlGetIssue,
   MlComment,
   MlTransition,
@@ -356,6 +386,36 @@ export const MultilinearToolkitHandlersLive = MultilinearToolkit.toLayer(
           input.space === undefined ? undefined : (yield* resolveSpace(input.space)).id;
         const issues = yield* toToolError(store.listReadyIssues(spaceId));
         return { issues: issues.map(cardOf) };
+      }),
+
+      ml_list_issues: Effect.fnUntraced(function* (input) {
+        const space = input.space === undefined ? undefined : yield* resolveSpace(input.space);
+        let labelId: LabelId | undefined;
+        if (input.label !== undefined) {
+          const labels = yield* toToolError(store.listLabels(space?.id));
+          const wanted = input.label.trim().toLowerCase();
+          const label = labels.find((candidate) => candidate.name.toLowerCase() === wanted);
+          if (label === undefined) {
+            const known = labels.map((candidate) => candidate.name).join(", ");
+            return yield* fail(
+              `unknown label "${input.label}" — known labels: ${known === "" ? "(none)" : known}`,
+            );
+          }
+          labelId = label.id;
+        }
+        const issues = yield* toToolError(
+          store.listIssues({
+            ...(space === undefined ? {} : { spaceId: space.id }),
+            ...(input.status_category === undefined ? {} : { category: input.status_category }),
+            ...(labelId === undefined ? {} : { labelId }),
+            ...(input.search === undefined ? {} : { search: input.search }),
+            ...(input.agent_blocked === undefined ? {} : { agentBlocked: input.agent_blocked }),
+          }),
+        );
+        return {
+          issues: issues.slice(0, LIST_ISSUES_CAP).map(cardOf),
+          truncated: issues.length > LIST_ISSUES_CAP,
+        };
       }),
 
       ml_get_issue: Effect.fnUntraced(function* (input) {
