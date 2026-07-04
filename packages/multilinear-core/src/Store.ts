@@ -100,7 +100,7 @@ const PROJECTION_TABLES = [
  * projection tables and replays the log. The `events` table never changes
  * shape.
  */
-const PROJECTION_SCHEMA_VERSION = 3;
+const PROJECTION_SCHEMA_VERSION = 4;
 
 const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS events (
@@ -119,6 +119,7 @@ CREATE TABLE IF NOT EXISTS spaces (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   key TEXT NOT NULL UNIQUE,
+  repo_paths TEXT NOT NULL DEFAULT '[]',
   created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS statuses (
@@ -406,6 +407,7 @@ const makeTrackerStore = Effect.fnUntraced(function* (config: TrackerStoreConfig
       id: row.id,
       name: row.name,
       key: row.key,
+      repoPaths: JSON.parse((row.repo_paths as string) ?? "[]") as ReadonlyArray<string>,
       createdAt: row.created_at,
     }) as Space;
 
@@ -490,6 +492,14 @@ const makeTrackerStore = Effect.fnUntraced(function* (config: TrackerStoreConfig
           event.payload.name,
           event.payload.key,
           event.ts,
+        );
+        return;
+      }
+      case "space.updated": {
+        runSql(
+          "UPDATE spaces SET repo_paths = ? WHERE id = ?",
+          JSON.stringify(event.payload.repoPaths),
+          event.payload.spaceId,
         );
         return;
       }
@@ -780,6 +790,23 @@ const makeTrackerStore = Effect.fnUntraced(function* (config: TrackerStoreConfig
               position,
             },
           });
+        });
+        return drafts;
+      }
+
+      case "space.update": {
+        if (get("SELECT id FROM spaces WHERE id = ?", command.spaceId) === undefined) {
+          return yield* reject(command, `space ${command.spaceId} does not exist`);
+        }
+        // Normalize: strip trailing separators (never the root itself),
+        // dedupe preserving order — the mapping is a set with stable display.
+        const repoPaths = [
+          ...new Set(command.repoPaths.map((path) => path.replace(/(?<=.)[/\\]+$/, ""))),
+        ];
+        drafts.push({
+          type: "space.updated",
+          issueId: null,
+          payload: { spaceId: command.spaceId, repoPaths },
         });
         return drafts;
       }

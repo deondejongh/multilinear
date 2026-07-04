@@ -140,10 +140,41 @@ const multilinearAuthLayer = Layer.effect(
   }),
 );
 
+/**
+ * Profile directories (MLT-51): the walk-up default plus
+ * `<repo>/.multilinear/profiles` for every repo mapped to a space (MLT-47).
+ * Re-resolved on every loader rescan so mapping edits take effect live; a
+ * degraded store just means mapped dirs are skipped. An explicit
+ * `MULTILINEAR_PROFILES_DIR` override remains the only directory.
+ */
+const resolveProfileDirectories = Effect.fnUntraced(function* () {
+  const path = yield* Path.Path;
+  const override = yield* Config.string("MULTILINEAR_PROFILES_DIR").pipe(Config.withDefault(""));
+  if (override.trim() !== "") return [override];
+  const defaultDir = yield* resolveProfilesDir();
+  const mapped = yield* openTrackerStoreOnce.pipe(
+    Effect.flatMap((store) => store.listSpaces()),
+    Effect.map((spaces) =>
+      spaces.flatMap((space) =>
+        space.repoPaths.map((repo) => path.join(repo, ".multilinear", "profiles")),
+      ),
+    ),
+    Effect.orElseSucceed(() => [] as ReadonlyArray<string>),
+  );
+  return [defaultDir, ...mapped];
+});
+
 const profileLoaderLayer = Layer.unwrap(
   Effect.gen(function* () {
-    const directory = yield* resolveProfilesDir();
-    return ProfileLoader.layer({ directory });
+    const services = yield* Effect.context<Path.Path | FileSystem.FileSystem>();
+    return ProfileLoader.layer({
+      // A ConfigError (malformed override env) degrades to "no directories"
+      // rather than failing the loader layer.
+      directories: resolveProfileDirectories().pipe(
+        Effect.provideContext(services),
+        Effect.orElseSucceed(() => [] as ReadonlyArray<string>),
+      ),
+    });
   }),
 );
 

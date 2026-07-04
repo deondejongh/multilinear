@@ -670,6 +670,60 @@ describe("TrackerStore", () => {
     );
   });
 
+  describe("space repo mapping (MLT-47)", () => {
+    it.effect("space.update sets normalized, deduplicated repo paths", () =>
+      provided(
+        Effect.gen(function* () {
+          const fixture = yield* setup();
+          yield* fixture.store.execute(
+            {
+              type: "space.update",
+              spaceId: fixture.spaceId,
+              repoPaths: ["/repos/multilinear/", "/repos/other", "/repos/multilinear"],
+            },
+            human,
+          );
+          const spaces = yield* fixture.store.listSpaces();
+          assert.deepStrictEqual(spaces[0]?.repoPaths, ["/repos/multilinear", "/repos/other"]);
+        }),
+      ),
+    );
+
+    it.effect("space.update on an unknown space is rejected", () =>
+      provided(
+        Effect.gen(function* () {
+          const fixture = yield* setup();
+          const result = yield* fixture.store
+            .execute(
+              {
+                type: "space.update",
+                spaceId: fixture.ids.next() as SpaceId,
+                repoPaths: ["/repos/anywhere"],
+              },
+              human,
+            )
+            .pipe(Effect.flip);
+          assert.strictEqual(result._tag, "CommandRejectedError");
+        }),
+      ),
+    );
+
+    it.effect("repo mapping survives rebuild", () =>
+      provided(
+        Effect.gen(function* () {
+          const fixture = yield* setup();
+          yield* fixture.store.execute(
+            { type: "space.update", spaceId: fixture.spaceId, repoPaths: ["/repos/multilinear"] },
+            agent,
+          );
+          yield* fixture.store.rebuild();
+          const spaces = yield* fixture.store.listSpaces();
+          assert.deepStrictEqual(spaces[0]?.repoPaths, ["/repos/multilinear"]);
+        }),
+      ),
+    );
+  });
+
   describe("events head", () => {
     it.effect("is 0 on an empty store and advances with every appended event", () =>
       provided(

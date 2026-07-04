@@ -53,6 +53,12 @@ export const SpaceCreated = defineEvent("space.created", {
   key: Schema.String,
 });
 
+/** Space settings changed — currently just the repo mapping (MLT-47). */
+export const SpaceUpdated = defineEvent("space.updated", {
+  spaceId: SpaceId,
+  repoPaths: Schema.Array(TrimmedNonEmptyString),
+});
+
 export const StatusCreated = defineEvent("status.created", {
   statusId: StatusId,
   spaceId: SpaceId,
@@ -174,6 +180,7 @@ export const CostRecorded = defineEvent("cost.recorded", {
 
 export const TrackerEvent = Schema.Union([
   SpaceCreated,
+  SpaceUpdated,
   StatusCreated,
   IssueCreated,
   IssueUpdated,

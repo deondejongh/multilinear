@@ -113,6 +113,12 @@ export const Space = Schema.Struct({
   name: TrimmedNonEmptyString,
   /** Short uppercase prefix for issue short-ids, e.g. `MLT` → `MLT-42`. */
   key: Schema.String.check(Schema.isPattern(/^[A-Z][A-Z0-9]{1,5}$/)),
+  /**
+   * Absolute repo-root paths this space maps to (01-ARCHITECTURE §5: a space
+   * maps to ≥1 repos). Consumed by Start-agent project matching and profile
+   * loading, and — later — the Phase 3 dispatcher (MLT-47/MLT-51).
+   */
+  repoPaths: Schema.Array(TrimmedNonEmptyString),
   createdAt: IsoDateTime,
 });
 export type Space = typeof Space.Type;

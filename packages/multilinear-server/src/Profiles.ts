@@ -92,11 +92,9 @@ export const parseProfileFile = Effect.fnUntraced(function* (
 export class ProfileLoader extends Context.Service<
   ProfileLoader,
   {
-    /** The directory this loader reads from. */
-    readonly directory: string;
     readonly current: () => Effect.Effect<ProfilesSnapshot>;
     readonly get: (name: string) => Effect.Effect<WorkflowProfile | undefined>;
-    /** Re-scan the directory now (the watcher calls this on changes). */
+    /** Re-scan the directories now (the watcher calls this on changes). */
     readonly reload: () => Effect.Effect<ProfilesSnapshot>;
   }
 >()("@multilinear/server/Profiles/ProfileLoader") {
@@ -105,53 +103,69 @@ export class ProfileLoader extends Context.Service<
     profiles: ReadonlyArray<WorkflowProfile>,
   ): Layer.Layer<ProfileLoader> =>
     Layer.succeed(ProfileLoader, {
-      directory: "<static>",
       current: () => Effect.succeed({ profiles, errors: [] }),
       get: (name) => Effect.succeed(profiles.find((profile) => profile.name === name)),
       reload: () => Effect.succeed({ profiles, errors: [] }),
     });
 
   /**
-   * Load from a directory and hot-reload on changes. The directory may be
-   * absent (no profiles yet) — it is re-checked on every reload.
+   * Load from a set of directories and hot-reload on changes. The set is an
+   * effect, re-resolved on every reload, so it can follow the space→repo
+   * mapping as it changes (MLT-51). Directories may be absent (no profiles
+   * yet); on duplicate profile names the earliest directory wins and the
+   * collision is an error entry.
    */
   static readonly layer = (options: {
-    readonly directory: string;
+    readonly directories: Effect.Effect<ReadonlyArray<string>>;
     readonly watch?: boolean;
   }): Layer.Layer<ProfileLoader, never, FileSystem.FileSystem | Path.Path> =>
     Layer.effect(ProfileLoader, makeProfileLoader(options));
 }
 
 const makeProfileLoader = Effect.fnUntraced(function* (options: {
-  readonly directory: string;
+  readonly directories: Effect.Effect<ReadonlyArray<string>>;
   readonly watch?: boolean;
 }) {
   const fileSystem = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const state = yield* SynchronizedRef.make<ProfilesSnapshot>(EMPTY_SNAPSHOT);
 
-  const scan = Effect.fnUntraced(function* () {
-    const exists = yield* fileSystem
-      .exists(options.directory)
-      .pipe(Effect.orElseSucceed(() => false));
-    if (!exists) return EMPTY_SNAPSHOT;
+  const scanDirectory = Effect.fnUntraced(function* (
+    directory: string,
+    profiles: WorkflowProfile[],
+    errors: string[],
+  ) {
+    const exists = yield* fileSystem.exists(directory).pipe(Effect.orElseSucceed(() => false));
+    if (!exists) return;
     const entries = yield* fileSystem
-      .readDirectory(options.directory)
+      .readDirectory(directory)
       .pipe(Effect.orElseSucceed(() => [] as ReadonlyArray<string>));
-    const profiles: WorkflowProfile[] = [];
-    const errors: string[] = [];
     for (const entry of entries.filter((name) => name.endsWith(".md")).toSorted()) {
-      const filePath = path.join(options.directory, entry);
+      const filePath = path.join(directory, entry);
       const outcome = yield* fileSystem.readFileString(filePath).pipe(
         Effect.mapError((error) => `unreadable: ${String(error)}`),
         Effect.flatMap((content) => parseProfileFile(filePath, entry, content)),
         Effect.result,
       );
-      if (Result.isSuccess(outcome)) {
-        profiles.push(outcome.success);
-      } else {
+      if (Result.isFailure(outcome)) {
         errors.push(`${filePath}: ${outcome.failure}`);
+      } else if (profiles.some((profile) => profile.name === outcome.success.name)) {
+        const first = profiles.find((profile) => profile.name === outcome.success.name);
+        errors.push(
+          `${filePath}: duplicate profile name "${outcome.success.name}" (already loaded from ${first?.sourcePath})`,
+        );
+      } else {
+        profiles.push(outcome.success);
       }
+    }
+  });
+
+  const scan = Effect.fnUntraced(function* () {
+    const directories = [...new Set(yield* options.directories)];
+    const profiles: WorkflowProfile[] = [];
+    const errors: string[] = [];
+    for (const directory of directories) {
+      yield* scanDirectory(directory, profiles, errors);
     }
     return { profiles, errors } satisfies ProfilesSnapshot;
   });
@@ -175,25 +189,35 @@ const makeProfileLoader = Effect.fnUntraced(function* (options: {
   yield* reload();
 
   if (options.watch !== false) {
-    const exists = yield* fileSystem
-      .exists(options.directory)
-      .pipe(Effect.orElseSucceed(() => false));
-    // node:fs.watch semantics vary by platform (and the directory may not
+    // node:fs.watch semantics vary by platform (and directories may not
     // exist yet), so watch events are merged with a slow periodic rescan —
-    // hot reload stays instant where the watcher works and merely prompt
-    // where it does not.
-    const watchEvents = exists
-      ? fileSystem
-          .watch(options.directory)
-          .pipe(
-            Stream.catchCause(() =>
-              Stream.fromEffect(
-                Effect.logWarning("multilinear profile watcher stopped; polling only"),
+    // hot reload stays instant where the watchers work and merely prompt
+    // where they do not. Only directories present at boot get watchers;
+    // later-mapped ones are covered by the rescan (which also re-resolves
+    // the directory set as the space→repo mapping changes).
+    const bootDirectories = [...new Set(yield* options.directories)];
+    const watchStreams: Array<Stream.Stream<unknown>> = [];
+    for (const directory of bootDirectories) {
+      const exists = yield* fileSystem.exists(directory).pipe(Effect.orElseSucceed(() => false));
+      if (exists) {
+        watchStreams.push(
+          fileSystem
+            .watch(directory)
+            .pipe(
+              Stream.catchCause(() =>
+                Stream.fromEffect(
+                  Effect.logWarning(
+                    `multilinear profile watcher stopped for ${directory}; polling only`,
+                  ),
+                ),
               ),
             ),
-          )
-      : Stream.empty;
-    yield* Stream.merge(watchEvents, Stream.tick("3 seconds")).pipe(
+        );
+      }
+    }
+    yield* Stream.mergeAll([...watchStreams, Stream.tick("3 seconds")], {
+      concurrency: "unbounded",
+    }).pipe(
       Stream.debounce("100 millis"),
       Stream.runForEach(() => reload()),
       Effect.forkScoped,
@@ -201,7 +225,6 @@ const makeProfileLoader = Effect.fnUntraced(function* (options: {
   }
 
   return ProfileLoader.of({
-    directory: options.directory,
     current: () => SynchronizedRef.get(state),
     get: (name) =>
       SynchronizedRef.get(state).pipe(

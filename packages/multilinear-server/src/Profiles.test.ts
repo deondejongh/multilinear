@@ -30,7 +30,14 @@ const makeTempDir = (): string => {
 };
 
 const loaderFor = (directory: string, watch: boolean) =>
-  ProfileLoader.layer({ directory, watch }).pipe(Layer.provide(platform));
+  ProfileLoader.layer({ directories: Effect.succeed([directory]), watch }).pipe(
+    Layer.provide(platform),
+  );
+
+const loaderForMany = (directories: ReadonlyArray<string>, watch: boolean) =>
+  ProfileLoader.layer({ directories: Effect.succeed(directories), watch }).pipe(
+    Layer.provide(platform),
+  );
 
 const VALID_PROFILE = `---
 name: implementer
@@ -73,6 +80,28 @@ describe("ProfileLoader", () => {
       const snapshot = yield* loader.current();
       assert.deepStrictEqual(snapshot, { profiles: [], errors: [] });
     }).pipe(Effect.provide(loaderFor(dir, false)));
+  });
+
+  it.effect("loads across directories; earliest wins a name collision, loudly (MLT-51)", () => {
+    const first = makeTempDir();
+    const second = makeTempDir();
+    NodeFS.writeFileSync(NodePath.join(first, "implementer.md"), VALID_PROFILE);
+    NodeFS.writeFileSync(NodePath.join(second, "implementer.md"), VALID_PROFILE);
+    NodeFS.writeFileSync(
+      NodePath.join(second, "reviewer.md"),
+      VALID_PROFILE.replace(/implementer/g, "reviewer"),
+    );
+    return Effect.gen(function* () {
+      const loader = yield* ProfileLoader;
+      const snapshot = yield* loader.current();
+      assert.deepStrictEqual(
+        snapshot.profiles.map((profile) => profile.name),
+        ["implementer", "reviewer"],
+      );
+      assert.strictEqual(snapshot.profiles[0]?.sourcePath, NodePath.join(first, "implementer.md"));
+      assert.strictEqual(snapshot.errors.length, 1);
+      assert.include(snapshot.errors[0] ?? "", 'duplicate profile name "implementer"');
+    }).pipe(Effect.provide(loaderForMany([first, second], false)));
   });
 
   it.effect("bad frontmatter fails loudly and never half-loads", () => {

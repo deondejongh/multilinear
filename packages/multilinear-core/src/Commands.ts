@@ -31,6 +31,16 @@ export const CreateSpace = Schema.Struct({
   key: Schema.String.check(Schema.isPattern(/^[A-Z][A-Z0-9]{1,5}$/)),
 });
 
+/**
+ * Update space settings — currently just the repo mapping (MLT-47). Paths
+ * are normalized (trailing separators stripped) and deduplicated in order.
+ */
+export const UpdateSpace = Schema.Struct({
+  type: Schema.Literal("space.update"),
+  spaceId: SpaceId,
+  repoPaths: Schema.Array(TrimmedNonEmptyString),
+});
+
 export const CreateIssue = Schema.Struct({
   type: Schema.Literal("issue.create"),
   issueId: IssueId,
@@ -147,6 +157,7 @@ export const LogCost = Schema.Struct({
 
 export const TrackerCommand = Schema.Union([
   CreateSpace,
+  UpdateSpace,
   CreateIssue,
   UpdateIssue,
   ChangeStatus,

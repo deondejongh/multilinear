@@ -5,9 +5,10 @@
  * store; navigation uses the tracker nav helpers.
  */
 import { useLocation } from "@tanstack/react-router";
-import { LayoutGridIcon, InboxIcon, PlusIcon } from "lucide-react";
+import { FolderIcon, LayoutGridIcon, InboxIcon, PlusIcon } from "lucide-react";
+import { useState } from "react";
 
-import type { SpaceId } from "@multilinear/core/model";
+import type { Space, SpaceId } from "@multilinear/core/model";
 
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
@@ -15,6 +16,7 @@ import { ScrollArea } from "~/components/ui/scroll-area";
 import { cn } from "~/lib/utils";
 import { useMultilinearStore } from "../store";
 import { useTrackerNav } from "../useTrackerNav";
+import { SpaceReposDialog } from "./SpaceReposDialog";
 
 function NavButton({
   active,
@@ -56,6 +58,7 @@ export function TrackerNav({ onNewSpace }: { onNewSpace: () => void }) {
   const filterSpaceId = useMultilinearStore((state) => state.filter.spaceId);
   const setSpaceFilter = useMultilinearStore((state) => state.setSpaceFilter);
   const { goToBoard, goToTriage } = useTrackerNav();
+  const [reposSpace, setReposSpace] = useState<Space | null>(null);
 
   const isBoard = location.pathname === "/multilinear";
   const isTriage = location.pathname.startsWith("/multilinear/triage");
@@ -111,20 +114,33 @@ export function TrackerNav({ onNewSpace }: { onNewSpace: () => void }) {
             All spaces
           </button>
           {spaces.map((space) => (
-            <button
-              key={space.id}
-              type="button"
-              onClick={() => selectSpace(space.id)}
-              className={cn(
-                "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[13px] outline-none transition-colors",
-                filterSpaceId === space.id
-                  ? "bg-accent font-medium text-foreground"
-                  : "text-muted-foreground/80 hover:bg-accent/50 hover:text-foreground",
-              )}
-            >
-              <span className="font-mono text-[11px] text-muted-foreground">{space.key}</span>
-              <span className="min-w-0 flex-1 truncate">{space.name}</span>
-            </button>
+            <div key={space.id} className="group relative">
+              <button
+                type="button"
+                onClick={() => selectSpace(space.id)}
+                className={cn(
+                  "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 pe-7 text-left text-[13px] outline-none transition-colors",
+                  filterSpaceId === space.id
+                    ? "bg-accent font-medium text-foreground"
+                    : "text-muted-foreground/80 hover:bg-accent/50 hover:text-foreground",
+                )}
+              >
+                <span className="font-mono text-[11px] text-muted-foreground">{space.key}</span>
+                <span className="min-w-0 flex-1 truncate">{space.name}</span>
+              </button>
+              <button
+                type="button"
+                aria-label={`Edit repositories for ${space.name}`}
+                title="Repositories"
+                onClick={() => setReposSpace(space)}
+                className={cn(
+                  "absolute end-2 top-1/2 -translate-y-1/2 text-muted-foreground/70 opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100",
+                  space.repoPaths.length > 0 && "opacity-60",
+                )}
+              >
+                <FolderIcon className="size-3.5" />
+              </button>
+            </div>
           ))}
           {spaces.length === 0 ? (
             <Button variant="outline" size="sm" className="mt-1 justify-start" onClick={onNewSpace}>
@@ -134,6 +150,12 @@ export function TrackerNav({ onNewSpace }: { onNewSpace: () => void }) {
           ) : null}
         </div>
       </ScrollArea>
+      <SpaceReposDialog
+        space={reposSpace}
+        onOpenChange={(open) => {
+          if (!open) setReposSpace(null);
+        }}
+      />
     </div>
   );
 }

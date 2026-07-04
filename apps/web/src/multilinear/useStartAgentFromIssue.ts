@@ -13,7 +13,11 @@
 import { useRouter } from "@tanstack/react-router";
 import { useCallback } from "react";
 
-import { scopedProjectKey, scopeThreadRef } from "@t3tools/client-runtime/environment";
+import {
+  scopedProjectKey,
+  scopeProjectRef,
+  scopeThreadRef,
+} from "@t3tools/client-runtime/environment";
 import { DEFAULT_RUNTIME_MODE, DEFAULT_SERVER_SETTINGS } from "@t3tools/contracts";
 
 import { buildContextPack } from "@multilinear/core/context-pack";
@@ -45,16 +49,28 @@ export function useStartAgentFromIssue() {
     async (detail: IssueDetail, profile?: WorkflowProfile): Promise<StartAgentOutcome> => {
       const pack = buildContextPack(detail, profile ? { profile } : undefined);
 
-      if (defaultProjectRef) {
+      // Prefer the project mapped to the issue's space (MLT-47): match the
+      // space's repo roots against project workspace roots (exact path after
+      // trailing-separator normalization). No match → the default project.
+      const normalize = (value: string) => value.replace(/(?<=.)[/\\]+$/, "");
+      const mappedRoots = new Set(detail.space.repoPaths.map(normalize));
+      const mappedProject = projects.find((candidate) =>
+        mappedRoots.has(normalize(candidate.workspaceRoot)),
+      );
+      const targetRef = mappedProject
+        ? scopeProjectRef(mappedProject.environmentId, mappedProject.id)
+        : defaultProjectRef;
+
+      if (targetRef) {
         const store = useComposerDraftStore.getState();
         const project = projects.find(
           (candidate) =>
-            candidate.id === defaultProjectRef.projectId &&
-            candidate.environmentId === defaultProjectRef.environmentId,
+            candidate.id === targetRef.projectId &&
+            candidate.environmentId === targetRef.environmentId,
         );
         const logicalProjectKey = project
           ? deriveLogicalProjectKeyFromSettings(project, projectGroupingSettings)
-          : scopedProjectKey(defaultProjectRef);
+          : scopedProjectKey(targetRef);
 
         // Reuse the project's unpromoted draft if one exists (same rule as
         // useHandleNewThread), else mint a fresh draft session.
@@ -67,15 +83,15 @@ export function useStartAgentFromIssue() {
         let draftId;
         if (reusable) {
           draftId = reusable.draftId;
-          store.setLogicalProjectDraftThreadId(logicalProjectKey, defaultProjectRef, draftId, {
+          store.setLogicalProjectDraftThreadId(logicalProjectKey, targetRef, draftId, {
             threadId: reusable.threadId,
           });
         } else {
           draftId = newDraftId();
           const environmentSettings =
-            serverConfigs.get(defaultProjectRef.environmentId)?.settings ?? DEFAULT_SERVER_SETTINGS;
+            serverConfigs.get(targetRef.environmentId)?.settings ?? DEFAULT_SERVER_SETTINGS;
           const initialEnvMode = environmentSettings.defaultThreadEnvMode;
-          store.setLogicalProjectDraftThreadId(logicalProjectKey, defaultProjectRef, draftId, {
+          store.setLogicalProjectDraftThreadId(logicalProjectKey, targetRef, draftId, {
             threadId: newThreadId(),
             createdAt: new Date().toISOString(),
             branch: null,
