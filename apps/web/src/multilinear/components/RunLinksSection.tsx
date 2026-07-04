@@ -1,8 +1,12 @@
 /**
- * Run links section for the detail sidebar. Lists run links (icon per kind,
- * truncated ref; `pr` refs open in a new tab). "Add run link" opens a popover
+ * Run links section for the detail sidebar. Lists run links (icon per kind);
+ * every kind is actionable (MLT-46): `pr` refs open in a new tab, `thread`
+ * refs navigate to the t3code thread view (the environment is resolved from
+ * the loaded thread shells — thread ids are environment-scoped upstream),
+ * and `worktree` paths copy to the clipboard. "Add run link" opens a popover
  * with a kind select + ref input → `run-link.add`.
  */
+import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useState } from "react";
 import { PlusIcon } from "lucide-react";
 
@@ -18,6 +22,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "~/components/ui/select";
+import { toastManager } from "~/components/ui/toast";
+import { useThreadShells } from "~/state/entities";
 import { newEntityId } from "../api";
 import { RUN_LINK_KIND_LABELS, RUN_LINK_KIND_OPTIONS, runLinkIcon } from "../presentation";
 import { useMultilinearStore } from "../store";
@@ -93,24 +99,76 @@ function AddRunLinkPopover({
 }
 
 function RunLinkItem({ link }: { link: RunLink }) {
+  const navigate = useNavigate();
+  const shells = useThreadShells();
   const Icon = runLinkIcon(link.kind);
-  const inner = (
-    <>
-      <Icon className="size-3.5 shrink-0 text-muted-foreground" />
-      <span className="min-w-0 flex-1 truncate">{link.ref}</span>
-    </>
-  );
   const className =
-    "flex items-center gap-2 rounded-sm px-1 py-1 text-xs text-foreground outline-none hover:bg-accent/50";
+    "flex w-full items-center gap-2 rounded-sm px-1 py-1 text-left text-xs text-foreground outline-none hover:bg-accent/50";
 
   if (link.kind === "pr" && isUrl(link.ref)) {
     return (
       <a href={link.ref} target="_blank" rel="noreferrer" className={className}>
-        {inner}
+        <Icon className="size-3.5 shrink-0 text-muted-foreground" />
+        <span className="min-w-0 flex-1 truncate">{link.ref}</span>
       </a>
     );
   }
-  return <div className={className}>{inner}</div>;
+
+  if (link.kind === "thread") {
+    // Refs are a bare thread id or `environmentId/threadId`; bare ids find
+    // their environment in the loaded shells. Unresolvable refs (archived,
+    // disconnected environment) stay visible but explain themselves.
+    const [refEnvironmentId, refThreadId] = link.ref.includes("/")
+      ? (link.ref.split("/", 2) as [string, string])
+      : [undefined, link.ref];
+    const shell = shells.find(
+      (candidate) =>
+        candidate.id === refThreadId &&
+        (refEnvironmentId === undefined || candidate.environmentId === refEnvironmentId),
+    );
+    return (
+      <button
+        type="button"
+        className={className}
+        onClick={() => {
+          if (shell) {
+            void navigate({
+              to: "/$environmentId/$threadId",
+              params: { environmentId: shell.environmentId, threadId: shell.id },
+            });
+          } else {
+            toastManager.add({
+              type: "info",
+              title: "Thread not found",
+              description: "It may be archived or in a disconnected environment.",
+            });
+          }
+        }}
+      >
+        <Icon className="size-3.5 shrink-0 text-muted-foreground" />
+        <span className="min-w-0 flex-1 truncate">{shell ? shell.title : link.ref}</span>
+      </button>
+    );
+  }
+
+  // Worktree paths (and unknown-shaped refs): click copies the ref.
+  return (
+    <button
+      type="button"
+      className={className}
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(link.ref);
+          toastManager.add({ type: "success", title: "Path copied" });
+        } catch {
+          toastManager.add({ type: "error", title: "Copy failed" });
+        }
+      }}
+    >
+      <Icon className="size-3.5 shrink-0 text-muted-foreground" />
+      <span className="min-w-0 flex-1 truncate">{link.ref}</span>
+    </button>
+  );
 }
 
 export function RunLinksSection({
