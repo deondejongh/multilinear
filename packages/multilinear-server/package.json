@@ -23,6 +23,10 @@
       "types": "./src/mcp/stdio.ts",
       "import": "./src/mcp/stdio.ts"
     },
+    "./developer-instructions": {
+      "types": "./src/mcp/DeveloperInstructions.ts",
+      "import": "./src/mcp/DeveloperInstructions.ts"
+    },
     "./db-path": {
       "types": "./src/DbPath.ts",
       "import": "./src/DbPath.ts"

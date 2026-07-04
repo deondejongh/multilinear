@@ -33,6 +33,7 @@ import { AuthOrchestrationOperateScope, AuthOrchestrationReadScope } from "@t3to
 import type { Actor } from "@multilinear/core/model";
 import { TrackerStore } from "@multilinear/core/store";
 import { resolveMultilinearDbPath } from "@multilinear/server/db-path";
+import { MULTILINEAR_DEVELOPER_INSTRUCTIONS } from "@multilinear/server/developer-instructions";
 import {
   MultilinearMcpActor,
   MultilinearToolkit,
@@ -49,6 +50,8 @@ import * as McpInvocationContext from "../mcp/McpInvocationContext.ts";
 import * as EnvironmentAuth from "../auth/EnvironmentAuth.ts";
 
 export { resolveMultilinearDbPath };
+/** Re-exported for the developer-instructions mount point (MLT-56). */
+export { MULTILINEAR_DEVELOPER_INSTRUCTIONS };
 
 /**
  * Locate `.multilinear/profiles`: explicit override, else walk up from cwd
