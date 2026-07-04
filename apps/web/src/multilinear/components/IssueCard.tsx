@@ -9,6 +9,7 @@ import type { IssueSummary } from "@multilinear/core/views";
 import { Badge } from "~/components/ui/badge";
 import { cn } from "~/lib/utils";
 import { ISSUE_TYPE_LABELS } from "../presentation";
+import { hasAgentBadges, IssueBadges } from "./IssueBadges";
 import { LabelChip } from "./LabelChip";
 import { PriorityIcon } from "./PriorityIcon";
 
@@ -45,6 +46,11 @@ export function IssueCard({
         ) : null}
       </div>
       <p className="line-clamp-2 text-[13px] leading-snug text-foreground">{issue.title}</p>
+      {hasAgentBadges(issue) ? (
+        <div className="flex flex-wrap gap-1">
+          <IssueBadges issue={issue} />
+        </div>
+      ) : null}
       {issue.labels.length > 0 ? (
         <div className="flex flex-wrap gap-1">
           {issue.labels.map((label) => (

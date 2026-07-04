@@ -9,7 +9,11 @@ import type { ComponentType } from "react";
 import {
   ArrowRightIcon,
   CircleDotIcon,
+  CoinsIcon,
+  CopyIcon,
+  FileCheckIcon,
   FilePlusIcon,
+  HelpCircleIcon,
   LinkIcon,
   MessageSquareIcon,
   PencilIcon,
@@ -79,6 +83,33 @@ function renderEvent(
       return { icon: ArrowRightIcon, sentence: `${actor} removed a relation` };
     case "run.linked":
       return { icon: LinkIcon, sentence: `${actor} linked a ${event.payload.kind}` };
+    case "proof.attached":
+      return { icon: FileCheckIcon, sentence: `${actor} attached proof of work` };
+    case "input.requested":
+      return { icon: HelpCircleIcon, sentence: `${actor} asked for human input` };
+    case "duplicate.proposed":
+      return { icon: CopyIcon, sentence: `${actor} proposed this is a duplicate` };
+    case "duplicate.resolved":
+      return {
+        icon: CopyIcon,
+        sentence: `${actor} ${
+          event.payload.accepted ? "confirmed" : "rejected"
+        } the duplicate proposal`,
+      };
+    case "cost.recorded": {
+      const parts: string[] = [];
+      if (event.payload.tokens !== undefined) {
+        parts.push(`${event.payload.tokens.toLocaleString("en-US")} tokens`);
+      }
+      if (event.payload.currencyAmount !== undefined) {
+        parts.push(`$${event.payload.currencyAmount}`);
+      }
+      if (event.payload.note !== undefined && event.payload.note !== "") {
+        parts.push(event.payload.note);
+      }
+      const detail = parts.length > 0 ? ` (${parts.join(" · ")})` : "";
+      return { icon: CoinsIcon, sentence: `${actor} logged cost${detail}` };
+    }
     // Space/status/label creation events are not issue-scoped narratives.
     default:
       return null;

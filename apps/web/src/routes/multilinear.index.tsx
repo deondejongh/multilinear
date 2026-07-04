@@ -6,8 +6,10 @@ import type { IssueSummary } from "@multilinear/core/views";
 
 import { Spinner } from "~/components/ui/spinner";
 import { toastManager } from "~/components/ui/toast";
+import { mlGetIssue } from "../multilinear/api";
 import { BoardView } from "../multilinear/components/BoardView";
 import { ListView } from "../multilinear/components/ListView";
+import { useReadyGateGuard } from "../multilinear/components/ReadyGateDialog";
 import { groupByCategory } from "../multilinear/grouping";
 import { useMultilinearStore } from "../multilinear/store";
 import { useStatusMover } from "../multilinear/statusCache";
@@ -30,6 +32,7 @@ function MultilinearIndex() {
   const loading = useMultilinearStore((state) => state.loading);
   const { goToIssue } = useTrackerNav();
   const { moveIssueToCategory } = useStatusMover();
+  const readyGate = useReadyGateGuard();
 
   const [selectedId, setSelectedId] = useState<IssueId | null>(null);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
@@ -86,6 +89,8 @@ function MultilinearIndex() {
 
   const moverRef = useRef(moveIssueToCategory);
   moverRef.current = moveIssueToCategory;
+  const guardRef = useRef(readyGate.guard);
+  guardRef.current = readyGate.guard;
 
   const shiftIssueByCategory = useCallback(async (issue: IssueSummary, direction: 1 | -1) => {
     const currentIndex = STATUS_CATEGORIES.indexOf(issue.category);
@@ -93,15 +98,33 @@ function MultilinearIndex() {
     if (targetIndex < 0 || targetIndex >= STATUS_CATEGORIES.length) return;
     const target = STATUS_CATEGORIES[targetIndex];
     if (!target) return;
-    const result = await moverRef.current({
-      issueId: issue.id,
-      spaceId: issue.spaceId,
-      category: target,
-    });
-    // Selection stays put — the store refresh re-renders the moved card.
-    if (!result.ok) {
-      toastManager.add({ type: "error", title: "Move rejected", description: result.error });
+
+    const runMove = async () => {
+      const result = await moverRef.current({
+        issueId: issue.id,
+        spaceId: issue.spaceId,
+        category: target,
+      });
+      // Selection stays put — the store refresh re-renders the moved card.
+      if (!result.ok) {
+        toastManager.add({ type: "error", title: "Move rejected", description: result.error });
+      }
+    };
+
+    // Ready-gate soft warning (03-PHASE-2 §E): fetch the description on demand
+    // and confirm before moving an under-specified issue into `ready`.
+    if (target === "ready") {
+      let description = "";
+      try {
+        const { detail } = await mlGetIssue(issue.id);
+        description = detail.issue.description;
+      } catch {
+        // Fall through: if we can't fetch the description, don't block the move.
+      }
+      guardRef.current(description, () => void runMove());
+      return;
     }
+    await runMove();
   }, []);
 
   useEffect(() => {
@@ -195,10 +218,15 @@ function MultilinearIndex() {
     );
   }
 
-  return view === "board" ? (
-    <BoardView groups={groups} selectedId={selectedId} onSelect={onSelect} onOpen={onOpen} />
-  ) : (
-    <ListView groups={groups} selectedId={selectedId} onSelect={onSelect} onOpen={onOpen} />
+  return (
+    <>
+      {view === "board" ? (
+        <BoardView groups={groups} selectedId={selectedId} onSelect={onSelect} onOpen={onOpen} />
+      ) : (
+        <ListView groups={groups} selectedId={selectedId} onSelect={onSelect} onOpen={onOpen} />
+      )}
+      {readyGate.dialog}
+    </>
   );
 }
 

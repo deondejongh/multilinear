@@ -17,9 +17,11 @@ import {
   IssueActivityResult,
   IssueGetResult,
   IssuesListResult,
+  IssuesReadyResult,
   LabelsListResult,
   MULTILINEAR_COMMAND_PATH,
   MULTILINEAR_QUERY_PATH,
+  ProfilesListResult,
   SpacesListResult,
   StatusesListResult,
   type TrackerQuery,
@@ -104,8 +106,10 @@ const runSpacesList = makeQueryRunner(SpacesListResult);
 const runStatusesList = makeQueryRunner(StatusesListResult);
 const runLabelsList = makeQueryRunner(LabelsListResult);
 const runIssuesList = makeQueryRunner(IssuesListResult);
+const runIssuesReady = makeQueryRunner(IssuesReadyResult);
 const runIssueGet = makeQueryRunner(IssueGetResult);
 const runIssueActivity = makeQueryRunner(IssueActivityResult);
+const runProfilesList = makeQueryRunner(ProfilesListResult);
 
 export const mlListSpaces = () => runSpacesList({ type: "spaces.list" });
 
@@ -117,10 +121,17 @@ export const mlListLabels = (spaceId?: SpaceId) =>
 
 export const mlListIssues = (filter: IssueFilter) => runIssuesList({ type: "issues.list", filter });
 
+export const mlListReadyIssues = (spaceId?: SpaceId) =>
+  runIssuesReady(
+    spaceId === undefined ? { type: "issues.ready" } : { type: "issues.ready", spaceId },
+  );
+
 export const mlGetIssue = (issueId: IssueId) => runIssueGet({ type: "issue.get", issueId });
 
 export const mlIssueActivity = (issueId: IssueId) =>
   runIssueActivity({ type: "issue.activity", issueId });
+
+export const mlListProfiles = () => runProfilesList({ type: "profiles.list" });
 
 const ulid = makeUlidGenerator((bytes) =>
   globalThis.crypto.getRandomValues(bytes as Uint8Array<ArrayBuffer>),

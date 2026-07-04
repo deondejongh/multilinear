@@ -6,8 +6,8 @@
  * mutation; the space's statuses are loaded once for name resolution and the
  * status select.
  */
-import { useCallback, useEffect, useRef, useState } from "react";
-import { ClipboardCopyIcon, PlayIcon } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ClipboardCopyIcon, FileCheckIcon, PauseCircleIcon, PlayIcon } from "lucide-react";
 
 import type {
   CommentId,
@@ -17,11 +17,15 @@ import type {
   Status,
   StatusId,
 } from "@multilinear/core/model";
-import type { IssueDetail as IssueDetailView } from "@multilinear/core/views";
+import type { IssueDetail as IssueDetailView, ProofView } from "@multilinear/core/views";
+import type { Comment } from "@multilinear/core/model";
 import type { StoredTrackerEvent } from "@multilinear/core/events";
 import { buildContextPack } from "@multilinear/core/context-pack";
+import { renderProofMarkdown } from "@multilinear/core/proof";
+import { ISSUE_TEMPLATE } from "@multilinear/core/ready-gate";
 
 import ChatMarkdown from "~/components/ChatMarkdown";
+import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { Button } from "~/components/ui/button";
 import {
   Select,
@@ -41,7 +45,9 @@ import { useMultilinearStore } from "../store";
 import { useStartAgentFromIssue } from "../useStartAgentFromIssue";
 import { ActivityFeed } from "./ActivityFeed";
 import { LabelPicker } from "./LabelPicker";
+import { ProfilePicker } from "./ProfilePicker";
 import { PrioritySelect } from "./PrioritySelect";
+import { useReadyGateGuard } from "./ReadyGateDialog";
 import { RelationEditor } from "./RelationEditor";
 import { RunLinksSection } from "./RunLinksSection";
 import { StatusSelect } from "./StatusSelect";
@@ -60,7 +66,10 @@ function SidebarSection({ title, children }: { title: string; children: React.Re
 export function IssueDetail({ issueId }: { issueId: IssueId }) {
   const runCommand = useMultilinearStore((state) => state.runCommand);
   const storeLabels = useMultilinearStore((state) => state.labels);
+  const profiles = useMultilinearStore((state) => state.profiles);
+  const profileErrors = useMultilinearStore((state) => state.profileErrors);
   const startAgent = useStartAgentFromIssue();
+  const readyGate = useReadyGateGuard();
 
   const [detail, setDetail] = useState<IssueDetailView | null>(null);
   const [activity, setActivity] = useState<ReadonlyArray<StoredTrackerEvent>>([]);
@@ -73,6 +82,7 @@ export function IssueDetail({ issueId }: { issueId: IssueId }) {
   const [descriptionDraft, setDescriptionDraft] = useState("");
   const [commentDraft, setCommentDraft] = useState("");
   const [startingAgent, setStartingAgent] = useState(false);
+  const [selectedProfile, setSelectedProfile] = useState<string | null>(null);
 
   const loadedSpaceRef = useRef<string | null>(null);
 
@@ -135,10 +145,20 @@ export function IssueDetail({ issueId }: { issueId: IssueId }) {
     setCommentDraft("");
   }, [commentDraft, issueId, mutate]);
 
+  const resolvedProfile = useMemo(
+    () =>
+      selectedProfile !== null
+        ? profiles.find((profile) => profile.name === selectedProfile)
+        : undefined,
+    [profiles, selectedProfile],
+  );
+
   const copyContextPack = useCallback(async () => {
     if (!detail) return;
     try {
-      await navigator.clipboard.writeText(buildContextPack(detail));
+      await navigator.clipboard.writeText(
+        buildContextPack(detail, resolvedProfile ? { profile: resolvedProfile } : undefined),
+      );
       toastManager.add({ type: "success", title: "Context pack copied" });
     } catch {
       toastManager.add({
@@ -147,7 +167,7 @@ export function IssueDetail({ issueId }: { issueId: IssueId }) {
         description: "Clipboard unavailable.",
       });
     }
-  }, [detail]);
+  }, [detail, resolvedProfile]);
 
   if (loading && !detail) {
     return (
@@ -177,6 +197,35 @@ export function IssueDetail({ issueId }: { issueId: IssueId }) {
   for (const label of detail.labels) spaceLabelMap.set(label.id, label);
   const spaceLabels = [...spaceLabelMap.values()];
 
+  // Interleave comments and proofs by createdAt so proof-of-work reads inline
+  // with the discussion (03-PHASE-2 §B).
+  type ThreadItem =
+    | { kind: "comment"; createdAt: string; comment: Comment }
+    | { kind: "proof"; createdAt: string; proof: ProofView };
+  const threadItems: ThreadItem[] = [
+    ...detail.comments.map(
+      (comment): ThreadItem => ({ kind: "comment", createdAt: comment.createdAt, comment }),
+    ),
+    ...detail.proofs.map(
+      (proof): ThreadItem => ({ kind: "proof", createdAt: proof.createdAt, proof }),
+    ),
+  ].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+
+  // Ready-gate guard (§E): moving into a `ready` status warns when the
+  // description isn't specified well enough for an agent to pick up.
+  const changeStatus = (statusId: StatusId) => {
+    const target = statuses.find((status) => status.id === statusId);
+    const commit = () => void mutate({ type: "status.change", issueId, statusId });
+    if (target?.category === "ready") {
+      readyGate.guard(issue.description, commit);
+    } else {
+      commit();
+    }
+  };
+
+  const resolveDuplicate = (accept: boolean) =>
+    void mutate({ type: "duplicate.resolve", issueId, accept });
+
   return (
     <div className="flex h-full min-h-0">
       <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
@@ -186,13 +235,19 @@ export function IssueDetail({ issueId }: { issueId: IssueId }) {
             <span>/</span>
             <span className="font-mono">{detail.shortId}</span>
             <div className="ms-auto flex items-center gap-1.5">
+              <ProfilePicker
+                profiles={profiles}
+                errors={profileErrors}
+                value={selectedProfile}
+                onChange={setSelectedProfile}
+              />
               <Button
                 size="sm"
                 disabled={startingAgent}
                 onClick={async () => {
                   setStartingAgent(true);
                   try {
-                    await startAgent(detail);
+                    await startAgent(detail, resolvedProfile);
                   } finally {
                     setStartingAgent(false);
                   }
@@ -211,6 +266,23 @@ export function IssueDetail({ issueId }: { issueId: IssueId }) {
               </Button>
             </div>
           </div>
+
+          {issue.pendingDuplicateStatusId !== null ? (
+            <Alert variant="info">
+              <AlertTitle>An agent proposed this is a duplicate</AlertTitle>
+              <AlertDescription>
+                Confirm to move this issue to the duplicate status, or reject to keep it as is.
+              </AlertDescription>
+              <div className="mt-2.5 flex gap-1.5">
+                <Button size="sm" onClick={() => resolveDuplicate(true)}>
+                  Confirm duplicate
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => resolveDuplicate(false)}>
+                  Reject
+                </Button>
+              </div>
+            </Alert>
+          ) : null}
 
           <input
             value={titleDraft}
@@ -255,7 +327,17 @@ export function IssueDetail({ issueId }: { issueId: IssueId }) {
                   value={descriptionDraft}
                   onChange={(event) => setDescriptionDraft(event.target.value)}
                 />
-                <div className="flex justify-end gap-1.5">
+                <div className="flex items-center justify-end gap-1.5">
+                  {descriptionDraft.trim().length === 0 ? (
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      className="me-auto"
+                      onClick={() => setDescriptionDraft(ISSUE_TEMPLATE)}
+                    >
+                      Insert template
+                    </Button>
+                  ) : null}
                   <Button variant="ghost" size="xs" onClick={() => setEditingDescription(false)}>
                     Cancel
                   </Button>
@@ -280,21 +362,51 @@ export function IssueDetail({ issueId }: { issueId: IssueId }) {
               Comments
             </p>
             <div className="space-y-3">
-              {detail.comments.map((comment) => (
-                <div key={comment.id} className="space-y-1">
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <span className="font-medium text-foreground/90">{comment.actor.id}</span>
-                    <span>· {formatRelativeTimeLabel(comment.createdAt)}</span>
+              {threadItems.map((item) =>
+                item.kind === "comment" ? (
+                  <div key={item.comment.id} className="space-y-1">
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <span className="font-medium text-foreground/90">
+                        {item.comment.actor.id}
+                      </span>
+                      <span>· {formatRelativeTimeLabel(item.comment.createdAt)}</span>
+                    </div>
+                    <div className="text-sm text-foreground">
+                      <ChatMarkdown text={item.comment.body} cwd={undefined} />
+                    </div>
                   </div>
-                  <div className="text-sm text-foreground">
-                    <ChatMarkdown text={comment.body} cwd={undefined} />
+                ) : (
+                  <div
+                    key={item.proof.id}
+                    className="space-y-1 rounded-lg border border-border bg-muted/30 p-3"
+                  >
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <FileCheckIcon className="size-3.5 text-success" />
+                      <span className="font-medium text-foreground/90">
+                        Proof of work from {item.proof.actor.id}
+                      </span>
+                      <span>· {formatRelativeTimeLabel(item.proof.createdAt)}</span>
+                    </div>
+                    <div className="text-sm text-foreground">
+                      <ChatMarkdown text={renderProofMarkdown(item.proof.proof)} cwd={undefined} />
+                    </div>
                   </div>
-                </div>
-              ))}
-              {detail.comments.length === 0 ? (
+                ),
+              )}
+              {threadItems.length === 0 ? (
                 <p className="text-xs text-muted-foreground">No comments yet.</p>
               ) : null}
             </div>
+            {issue.agentBlocked ? (
+              <Alert variant="warning">
+                <PauseCircleIcon className="size-4" />
+                <AlertTitle>An agent is waiting for input</AlertTitle>
+                <AlertDescription>
+                  Reply below to answer the agent&apos;s question; posting a comment clears the
+                  block.
+                </AlertDescription>
+              </Alert>
+            ) : null}
             <div className="space-y-2">
               <Textarea
                 placeholder="Leave a comment… (⌘↵ to submit)"
@@ -313,7 +425,7 @@ export function IssueDetail({ issueId }: { issueId: IssueId }) {
                   disabled={commentDraft.trim().length === 0}
                   onClick={() => void submitComment()}
                 >
-                  Comment
+                  {issue.agentBlocked ? "Reply to agent" : "Comment"}
                 </Button>
               </div>
             </div>
@@ -336,9 +448,7 @@ export function IssueDetail({ issueId }: { issueId: IssueId }) {
             <StatusSelect
               statuses={statuses}
               value={issue.statusId}
-              onChange={(statusId: StatusId) =>
-                void mutate({ type: "status.change", issueId, statusId })
-              }
+              onChange={(statusId: StatusId) => changeStatus(statusId)}
             />
           </SidebarSection>
 
@@ -391,6 +501,8 @@ export function IssueDetail({ issueId }: { issueId: IssueId }) {
           </SidebarSection>
         </div>
       </aside>
+
+      {readyGate.dialog}
     </div>
   );
 }

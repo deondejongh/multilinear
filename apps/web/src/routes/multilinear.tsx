@@ -1,5 +1,5 @@
 import { createFileRoute, Outlet, redirect, useLocation } from "@tanstack/react-router";
-import { LayoutGridIcon, ListIcon, PlusIcon, XIcon } from "lucide-react";
+import { LayoutGridIcon, ListIcon, PauseCircleIcon, PlusIcon, XIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import type { LabelId } from "@multilinear/core/model";
@@ -29,18 +29,22 @@ function MultilinearLayout() {
   const labels = useMultilinearStore((state) => state.labels);
   const labelId = useMultilinearStore((state) => state.filter.labelId);
   const setLabelFilter = useMultilinearStore((state) => state.setLabelFilter);
+  const agentBlocked = useMultilinearStore((state) => state.filter.agentBlocked);
+  const setAgentBlockedFilter = useMultilinearStore((state) => state.setAgentBlockedFilter);
   const view = useMultilinearStore((state) => state.view);
   const setView = useMultilinearStore((state) => state.setView);
   const error = useMultilinearStore((state) => state.error);
   const clearError = useMultilinearStore((state) => state.clearError);
   const refresh = useMultilinearStore((state) => state.refresh);
+  const loadProfiles = useMultilinearStore((state) => state.loadProfiles);
 
   const [quickCaptureOpen, setQuickCaptureOpen] = useState(false);
   const [spaceDialogOpen, setSpaceDialogOpen] = useState(false);
 
   useEffect(() => {
     void refresh();
-  }, [refresh]);
+    void loadProfiles();
+  }, [refresh, loadProfiles]);
 
   useTrackerKeys({
     enabled: true,
@@ -57,6 +61,16 @@ function MultilinearLayout() {
           <span className="text-sm font-medium text-foreground">Issues</span>
 
           <div className="ms-auto flex items-center gap-2">
+            <Button
+              variant={agentBlocked ? "default" : "ghost"}
+              size="sm"
+              aria-pressed={agentBlocked}
+              onClick={() => setAgentBlockedFilter(!agentBlocked)}
+            >
+              <PauseCircleIcon className="size-3.5" />
+              Agent blocked
+            </Button>
+
             <Select
               value={labelId ?? ALL_LABELS}
               onValueChange={(next) =>

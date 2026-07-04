@@ -264,9 +264,9 @@ await Effect.runPromise(
       "the follow-up must be linked discovered_from the original issue",
     );
     const events = yield* store.listIssueEvents(seeded.issueId);
-    const types = events.map((entry) => entry.event.type);
+    const types = new Set(events.map((entry) => entry.event.type));
     for (const expected of ["issue.created", "comment.added", "status.changed", "proof.attached"]) {
-      expect(types.includes(expected as never), `event log must contain ${expected}`);
+      expect(types.has(expected as never), `event log must contain ${expected}`);
     }
     log("   → event log tells the whole story, with true agent actors");
   }).pipe(Effect.provide(TrackerStore.layer({ dbPath })), Effect.scoped),

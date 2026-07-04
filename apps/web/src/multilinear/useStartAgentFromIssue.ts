@@ -17,6 +17,7 @@ import { scopedProjectKey, scopeThreadRef } from "@t3tools/client-runtime/enviro
 import { DEFAULT_RUNTIME_MODE, DEFAULT_SERVER_SETTINGS } from "@t3tools/contracts";
 
 import { buildContextPack } from "@multilinear/core/context-pack";
+import type { WorkflowProfile } from "@multilinear/core/profile";
 import type { IssueDetail } from "@multilinear/core/views";
 
 import { useComposerDraftStore } from "../composerDraftStore";
@@ -41,8 +42,8 @@ export function useStartAgentFromIssue() {
   const router = useRouter();
 
   return useCallback(
-    async (detail: IssueDetail): Promise<StartAgentOutcome> => {
-      const pack = buildContextPack(detail);
+    async (detail: IssueDetail, profile?: WorkflowProfile): Promise<StartAgentOutcome> => {
+      const pack = buildContextPack(detail, profile ? { profile } : undefined);
 
       if (defaultProjectRef) {
         const store = useComposerDraftStore.getState();

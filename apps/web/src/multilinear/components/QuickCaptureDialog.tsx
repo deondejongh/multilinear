@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { IssueId, Priority, SpaceId } from "@multilinear/core/model";
+import { ISSUE_TEMPLATE } from "@multilinear/core/ready-gate";
 
 import { Button } from "~/components/ui/button";
 import { Checkbox } from "~/components/ui/checkbox";
@@ -156,12 +157,21 @@ export function QuickCaptureDialog({
             onChange={(event) => setTitle(event.target.value)}
             onKeyDown={onComposerKeyDown}
           />
-          <Textarea
-            placeholder="Add a description… (markdown)"
-            value={description}
-            onChange={(event) => setDescription(event.target.value)}
-            onKeyDown={onComposerKeyDown}
-          />
+          <div className="space-y-1">
+            <Textarea
+              placeholder="Add a description… (markdown)"
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              onKeyDown={onComposerKeyDown}
+            />
+            {description.trim().length === 0 ? (
+              <div className="flex justify-end">
+                <Button variant="ghost" size="xs" onClick={() => setDescription(ISSUE_TEMPLATE)}>
+                  Insert template
+                </Button>
+              </div>
+            ) : null}
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             <Select
               value={spaceId ?? undefined}

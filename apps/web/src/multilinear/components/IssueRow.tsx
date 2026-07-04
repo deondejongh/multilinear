@@ -9,6 +9,7 @@ import type { IssueSummary } from "@multilinear/core/views";
 
 import { formatRelativeTimeLabel } from "~/timestampFormat";
 import { cn } from "~/lib/utils";
+import { hasAgentBadges, IssueBadges } from "./IssueBadges";
 import { LabelChip } from "./LabelChip";
 import { PriorityIcon } from "./PriorityIcon";
 
@@ -40,6 +41,11 @@ export function IssueRow({
         {issue.shortId}
       </span>
       <span className="min-w-0 flex-1 truncate text-foreground">{issue.title}</span>
+      {hasAgentBadges(issue) ? (
+        <div className="hidden shrink-0 gap-1 sm:flex">
+          <IssueBadges issue={issue} />
+        </div>
+      ) : null}
       {issue.labels.length > 0 ? (
         <div className="hidden shrink-0 gap-1 md:flex">
           {issue.labels.slice(0, 3).map((label) => (
