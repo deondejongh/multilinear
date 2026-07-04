@@ -1,0 +1,24 @@
+{
+  "name": "@multilinear/server",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./router": {
+      "types": "./src/Router.ts",
+      "import": "./src/Router.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit",
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@multilinear/core": "workspace:*",
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@effect/vitest": "catalog:",
+    "@types/node": "catalog:",
+    "vite-plus": "catalog:"
+  }
+}
