@@ -1,6 +1,10 @@
 # Multilinear agent walkthrough — a raw agent session works the board
 
-**Status:** Phase 2 acceptance artifact · repeatable · last executed 2026-07-04 (passing).
+**Status:** Phase 2 acceptance artifact · repeatable · scripted version last
+executed 2026-07-04 (passing) · live version last executed 2026-07-04 with a
+headless Claude Code session in a scratch repo (passing: full cycle completed,
+both required rejections quoted back verbatim, `discovered_from` follow-up
+filed — every event recorded with the true `agent:*` identity).
 
 This walkthrough proves multilinear's core promise: **any agent in any harness
 is a first-class citizen of the board** — not just sessions inside t3code. A
