@@ -3,14 +3,14 @@
 > Agents: read this at session start; update it before session end (Working
 > Agreement §0). Humans: this is the project's single source of "where are we".
 
-**Last updated:** 2026-07-04 (Phase 1 complete — the board; backlog lives in the tracker)
-**Current phase:** 1 done; next up Phase 2 (agent hands)
+**Last updated:** 2026-07-04 (Phase 2 complete — agents are citizens of the board)
+**Current phase:** 2 done; next up Phase 3 (policy brain — ⛔ still gated on upstream #2829)
 
 ## Phase checklist
 
 - [x] Phase 0 — fork scaffolding (2026-07-04, CI green)
 - [x] Phase 1 — the board (2026-07-04, 40 issues seeded into space MLT)
-- [ ] Phase 2 — agent hands (MCP)
+- [x] Phase 2 — agent hands (2026-07-04, MCP + whitelist + proof-of-work; walkthrough executed live)
 - [ ] Phase 3 — policy brain (⛔ gated on upstream #2829 → main)
 - [ ] Phase 4 — rules and the world
 
@@ -34,6 +34,12 @@
 | D15 | 2026-07-04. Relations stored canonically (`blocks`, `parent`, `relates_to`, `duplicate_of`, `discovered_from`); `blocked_by`/`child` are derived inverse views at query/UI level. All six kinds exist at the API surface. Prevents double-entry drift in the event log.                                                                                                                                                                                                                                                                              | RESOLVED (agent)                               |
 | D16 | 2026-07-04. Issue short-ids `SPACEKEY-n` (e.g. `MLT-42`): `n` is per-space, assigned deterministically at replay as (count of prior `issue.created` in that space) + 1 — a projection fact, not event payload, so rebuild determinism is free. Space key defaults to first 3 consonant-ish chars of the name, editable at space creation.                                                                                                                                                                                                            | RESOLVED (agent)                               |
 | D17 | 2026-07-04. Keyboard-first UI uses view-local key handlers inside our routes (mirroring upstream's per-component `onKeyDown` conventions), not new `KeybindingCommand`s — those live in `@t3tools/contracts` and would cost a mount point in a churny file. Revisit if/when the tracker earns global shortcuts.                                                                                                                                                                                                                                      | RESOLVED (agent)                               |
+| D18 | 2026-07-04. MCP via effect's `McpServer` (already upstream's own MCP stack): one `Toolkit` definition serves both transports — `layerStdio` for the standalone entry point (`packages/multilinear-server/src/mcp/stdio.ts`) and registration onto upstream's `/mcp` HTTP server (mount point in `McpHttpServer.ts`). Hosted actor identity = `t3code:thread/<threadId>` from `McpInvocationContext`; stdio identity from `MULTILINEAR_ACTOR` env (default `stdio:<os user>`).                                                                        | RESOLVED (agent)                               |
+| D19 | 2026-07-04. Proof-required rule: a proof event must exist with event-id (ULID, chronological) greater than the id of the transition that last put the issue into `in_progress` (`issues.in_progress_since_event`) — review bounces need fresh proof. Agent moves to `duplicate` become `duplicate.proposed` (pending flag) inside the same `status.change` command; `duplicate.resolve` is human-only. `input.request` is agent-only; the Agent Blocked flag clears on any human comment or any status change (implicit, projection-deterministic).  | RESOLVED (agent)                               |
+| D20 | 2026-07-04. Secret scan scope: automated actors only (`agent`/`rule`/`system` via `actor.kind !== "human"`); humans are exempt so the accountable operator can't be locked out by a false positive. Reject-before-persist, never redact. Scan covers comment bodies, request-input questions, cost notes, and the whole proof payload via its JSON serialization.                                                                                                                                                                                    | RESOLVED (agent)                               |
+| D21 | 2026-07-04. Projection-schema migration via `PRAGMA user_version`: on open with an older version, drop projection tables and replay the event log (projections are disposable; the `events` table never changes shape). Phase 2 = version 2.                                                                                                                                                                                                                                                                                                         | RESOLVED (agent)                               |
+| D22 | 2026-07-04. Public agent-facing surfaces (MCP tool params/results, profile frontmatter, proof-of-work doc) use snake_case (`to_status`, `not_done`, `trust_tier` — matches the spec's vocabulary); core schemas stay camelCase per codebase convention; the MCP handlers map. Profiles dir resolution: `MULTILINEAR_PROFILES_DIR` override, else walk up from server cwd to the nearest `.multilinear/profiles` (per-space repo mapping = MLT-51).                                                                                                   | RESOLVED (agent)                               |
+| D23 | 2026-07-04. `cost.recorded` is feed-only in Phase 2 (no projection table); an aggregate projection lands with Phase 3 estimates-vs-actuals (MLT-53). Routes and hosted-MCP registration each hold their own SQLite connection (WAL-safe; consolidation = MLT-52).                                                                                                                                                                                                                                                                                    | RESOLVED (agent)                               |
 | D5+ | (agents append decisions here with date + rationale)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | —                                              |
 
 ## Open questions
@@ -55,6 +61,83 @@ _(agents list discovered work here until Phase 1's tracker can hold it)_
 | Landscape                                                                  | Agent HQ cadence; Vibe Kanban community fork; Beads/GasTown                               | 2026-07-04   |
 
 ## Session log
+
+### 2026-07-04 — Phase 2: agent hands (COMPLETE)
+
+**Done — acceptance checklist (03-PHASE-2):** all items pass.
+
+- Scripted E2E walkthrough: `packages/multilinear-server/src/mcp/walkthrough.ts`
+  (real MCP stdio client, throwaway DB, asserts the two required rejections,
+  verifies the event log) — executed, passing. **Live version also executed:**
+  a headless raw Claude Code session in a scratch repo completed the full
+  cycle (list ready → claim → in_progress → done attempt REJECTED →
+  needs_review-without-proof REJECTED → proof → needs_review →
+  discovered_from follow-up), quoting both rejections verbatim. Documented in
+  `docs/multilinear-agent-walkthrough.md`.
+- Whitelist enforced in `multilinear-core` `decide()` keyed on `actor.kind`,
+  proven by tests: the four allowed transitions, the `done` ban for
+  agent/rule/system (incl. `needs_review→done`), cancelled ban, backwards
+  moves, Ready gate (agents hard-blocked, humans soft-warned), proof-required
+  with staleness (re-entering in_progress invalidates old proofs), duplicate
+  moves as proposals only + human-only `duplicate.resolve`. 77 core tests,
+  19 server tests.
+- Agent Blocked: `input.request` (agent-only) posts the question as a comment
+  and flags the issue; cleared by a human comment or any status change.
+  Badge + header filter browser-verified live on the real board.
+- Profiles: loader with yaml frontmatter + schema validation + fs-watch hot
+  reload; bad frontmatter is an error entry + error log (never a silent
+  skip); name/filename mismatch and empty body rejected; three starters
+  (implementer / bug-fixer / spike) in `.multilinear/profiles/`, all loading
+  clean. Trust tiers + allowed_transitions recorded and surfaced (profiles
+  can only narrow the whitelist, never widen — core is the hard boundary).
+- Proof-of-work renders as a distinct card interleaved in the issue thread
+  and as activity-feed entries — browser-verified; convention documented in
+  `docs/proof-of-work.md` (publishable).
+- Secret scan (invariant 5) over agent comments/questions/proofs/cost notes,
+  reject-before-persist, unit + integration tests incl. nested proof fields
+  and the human-exempt rule.
+- MCP server: 8 `ml_*` tools from one effect Toolkit; standalone stdio entry
+  first-class (used for all dogfooding this session); hosted registration on
+  upstream's `/mcp` (new mount point in `McpHttpServer.ts`, logged — 7 rows
+  total, checker green). Context pack v2 (profile template wrap + compacted
+  discussion) with a profile picker in the UI.
+- Projection schema v2 with `user_version`-gated drop-and-replay migration
+  (tested); real DB migrated and rebuilt (53→56 issues by session end).
+- Gate: `vp check` 0 errors; repo-wide typecheck green; 77 + 19 + 124 tests
+  green; mount audit vs `upstream/main` shows only logged mount points;
+  merge `upstream/main` no-op (0 behind at start and end).
+
+**Dogfooding:** MLT-33 claimed (agent comment + ready→in_progress) at session
+start and moved to needs_review via our own MCP server with a real proof at
+the end. Follow-ups filed through the MCP with `discovered_from` MLT-33:
+MLT-51 (per-space repo mapping for profiles), MLT-52 (share one TrackerStore
+between routes and MCP), MLT-53 (cost projection for Phase 3), MLT-55
+(detail route should accept short-ids — found during live UI verification).
+MLT-54 is the cancelled UI-verification scratch issue.
+
+**Decisions this session:** D18–D23 (table above).
+
+**Division of labor:** core/MCP/profiles + all safety-critical validation and
+tests inline; web UI delegated to an opus-4.8 subagent against a written spec
+(reviewed — clean, one benign lint refactor outside its scope kept); browser
+verification delegated to a sonnet subagent driving Chrome (all 12 checks
+pass, no console errors).
+
+**Notes:** the dev server must be restarted after pulling this phase (server
+code changed; the DB migrates itself on first open). The old
+`resolveMultilinearDbPath` moved from the adapter to
+`@multilinear/server/db-path` — the adapter re-exports it.
+
+**Handoff:** Phase 2 is done and CI-green. Next session runs Prompt 3
+(`PROMPTS.md`) against `multilinear-plan/04-PHASE-3-POLICY-BRAIN.md` — but its
+FIRST ACTION is the timing gate: verify upstream PR #2829 (orchestration V2)
+has merged to main; as of 2026-07-04 it is still an open draft, so expect to
+stop and land unless the human has said otherwise. Practical notes: dispatch
+should reuse the MCP/store surfaces built here (`ml_list_ready` semantics =
+`listReadyIssues`); the context-pack compiler accepts a profile
+(`buildContextPack(detail, { profile })`); trust-tier enforcement beyond
+recording is Phase 4. MLT-34 (Phase 3) is chained `blocked_by` MLT-33, which
+now sits in needs_review — the human should review and close MLT-33 first.
 
 ### 2026-07-04 — Phase 2: agent hands (planning entry)
 
