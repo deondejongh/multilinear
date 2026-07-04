@@ -31,6 +31,24 @@ export interface ProfilesSnapshot {
 
 const EMPTY_SNAPSHOT: ProfilesSnapshot = { profiles: [], errors: [] };
 
+const sameStrings = (a: ReadonlyArray<string>, b: ReadonlyArray<string>): boolean =>
+  a.length === b.length && a.every((value, index) => value === b[index]);
+
+const sameProfile = (a: WorkflowProfile, b: WorkflowProfile): boolean =>
+  a.name === b.name &&
+  a.intent === b.intent &&
+  a.provider === b.provider &&
+  a.model === b.model &&
+  a.trustTier === b.trustTier &&
+  a.body === b.body &&
+  a.sourcePath === b.sourcePath &&
+  sameStrings(a.allowedTransitions, b.allowedTransitions);
+
+const sameSnapshot = (a: ProfilesSnapshot, b: ProfilesSnapshot): boolean =>
+  sameStrings(a.errors, b.errors) &&
+  a.profiles.length === b.profiles.length &&
+  a.profiles.every((profile, index) => sameProfile(profile, b.profiles[index] as WorkflowProfile));
+
 const decodeFrontmatter = Schema.decodeUnknownEffect(ProfileFrontmatter);
 
 /** Split a profile file into frontmatter YAML and prompt body. */
@@ -140,6 +158,12 @@ const makeProfileLoader = Effect.fnUntraced(function* (options: {
 
   const reload = Effect.fnUntraced(function* () {
     const snapshot = yield* scan();
+    const previous = yield* SynchronizedRef.get(state);
+    // The periodic rescan makes reload hot-path; only swap (and log) when
+    // something actually changed.
+    if (sameSnapshot(snapshot, previous)) {
+      return previous;
+    }
     yield* SynchronizedRef.set(state, snapshot);
     // Fail loudly (03 §D): every bad profile is an error log, not a skip.
     yield* Effect.forEach(snapshot.errors, (error) =>
@@ -154,16 +178,26 @@ const makeProfileLoader = Effect.fnUntraced(function* (options: {
     const exists = yield* fileSystem
       .exists(options.directory)
       .pipe(Effect.orElseSucceed(() => false));
-    if (exists) {
-      yield* fileSystem.watch(options.directory).pipe(
-        Stream.debounce("100 millis"),
-        Stream.runForEach(() => reload()),
-        Effect.catch((error) =>
-          Effect.logWarning(`multilinear profile watcher stopped: ${String(error)}`),
-        ),
-        Effect.forkScoped,
-      );
-    }
+    // node:fs.watch semantics vary by platform (and the directory may not
+    // exist yet), so watch events are merged with a slow periodic rescan —
+    // hot reload stays instant where the watcher works and merely prompt
+    // where it does not.
+    const watchEvents = exists
+      ? fileSystem
+          .watch(options.directory)
+          .pipe(
+            Stream.catchCause(() =>
+              Stream.fromEffect(
+                Effect.logWarning("multilinear profile watcher stopped; polling only"),
+              ),
+            ),
+          )
+      : Stream.empty;
+    yield* Stream.merge(watchEvents, Stream.tick("3 seconds")).pipe(
+      Stream.debounce("100 millis"),
+      Stream.runForEach(() => reload()),
+      Effect.forkScoped,
+    );
   }
 
   return ProfileLoader.of({
