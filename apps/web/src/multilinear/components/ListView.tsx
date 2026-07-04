@@ -37,9 +37,11 @@ export function ListView({
   onOpen: (issue: IssueSummary) => void;
   display: DisplayOptions;
 }) {
-  const nonEmpty = groups.filter((group) => group.issues.length > 0);
+  const nonEmpty = display.showEmptyGroups
+    ? groups
+    : groups.filter((group) => group.issues.length > 0);
 
-  if (nonEmpty.length === 0) {
+  if (nonEmpty.every((group) => group.issues.length === 0)) {
     return (
       <div className="flex h-full items-center justify-center">
         <p className="text-sm text-muted-foreground">No issues yet.</p>

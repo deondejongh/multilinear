@@ -7,7 +7,7 @@ import { STATUS_CATEGORIES, type Priority, type StatusCategory } from "@multilin
 import type { IssueSummary } from "@multilinear/core/views";
 
 import { CATEGORY_LABELS, priorityLabel } from "./presentation";
-import type { IssueOrdering, ListGrouping, ViewFilterPrefs } from "./viewPrefs";
+import type { IssueOrdering, ListGrouping, OrderingDirection, ViewFilterPrefs } from "./viewPrefs";
 
 export interface CategoryGroup {
   category: StatusCategory;
@@ -49,34 +49,40 @@ export function applyViewFilters(
   issues: ReadonlyArray<IssueSummary>,
   filters: ViewFilterPrefs,
 ): ReadonlyArray<IssueSummary> {
-  const { priorities, categories } = filters;
-  if (priorities.length === 0 && categories.length === 0) return issues;
+  const { priorities, categories, labelIds } = filters;
+  if (priorities.length === 0 && categories.length === 0 && labelIds.length === 0) return issues;
   return issues.filter(
     (issue) =>
       (priorities.length === 0 || priorities.includes(issue.priority)) &&
-      (categories.length === 0 || categories.includes(issue.category)),
+      (categories.length === 0 || categories.includes(issue.category)) &&
+      (labelIds.length === 0 || issue.labels.some((label) => labelIds.includes(label.id))),
   );
 }
 
 /**
- * Order issues for display. "updated" mirrors the server default
- * (`updated_at DESC`); ties inside "priority" fall back to recency.
+ * Order issues for display. "desc" is each ordering's natural direction —
+ * newest first / most urgent first ("updated" desc mirrors the server
+ * default `updated_at DESC`); "asc" reverses it. Ties inside "priority"
+ * fall back to recency.
  */
 export function orderIssues(
   issues: ReadonlyArray<IssueSummary>,
   ordering: IssueOrdering,
+  direction: OrderingDirection = "desc",
 ): ReadonlyArray<IssueSummary> {
+  const sign = direction === "desc" ? 1 : -1;
   const byRecency = (a: IssueSummary, b: IssueSummary, field: "updatedAt" | "createdAt") =>
     b[field].localeCompare(a[field]) || b.id.localeCompare(a.id);
   switch (ordering) {
     case "updated":
-      return issues.toSorted((a, b) => byRecency(a, b, "updatedAt"));
+      return issues.toSorted((a, b) => sign * byRecency(a, b, "updatedAt"));
     case "created":
-      return issues.toSorted((a, b) => byRecency(a, b, "createdAt"));
+      return issues.toSorted((a, b) => sign * byRecency(a, b, "createdAt"));
     case "priority":
       return issues.toSorted(
         (a, b) =>
-          priorityRank(a.priority) - priorityRank(b.priority) || byRecency(a, b, "updatedAt"),
+          sign * (priorityRank(a.priority) - priorityRank(b.priority)) ||
+          byRecency(a, b, "updatedAt"),
       );
   }
 }

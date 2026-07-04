@@ -21,8 +21,6 @@ import { useStatusMover } from "../multilinear/statusCache";
 import { useTrackerNav } from "../multilinear/useTrackerNav";
 import { isTypingTarget } from "../multilinear/useTrackerKeys";
 
-const BOARD_HIDE_WHEN_EMPTY = new Set<StatusCategory>(["duplicate", "cancelled"]);
-
 /** Flat list of `{ category, issue }` in canonical order for keyboard nav. */
 interface FlatEntry {
   category: StatusCategory;
@@ -49,10 +47,17 @@ function MultilinearIndex() {
     if (!loading) setHasLoadedOnce(true);
   }, [loading]);
 
+  const labelIds = useMultilinearStore((state) => state.filter.labelIds);
+
   // The view pipeline (MLT-48): filter -> order -> group.
   const visibleIssues = useMemo(
-    () => orderIssues(applyViewFilters(issues, { priorities, categories }), display.ordering),
-    [issues, priorities, categories, display.ordering],
+    () =>
+      orderIssues(
+        applyViewFilters(issues, { priorities, categories, labelIds }),
+        display.ordering,
+        display.orderingDirection,
+      ),
+    [issues, priorities, categories, labelIds, display.ordering, display.orderingDirection],
   );
 
   const groups = useMemo(() => groupByCategory(visibleIssues), [visibleIssues]);
@@ -62,14 +67,12 @@ function MultilinearIndex() {
     [visibleIssues, display.listGrouping],
   );
 
-  // Visible columns (board) mirror BoardView's empty-column hiding so keyboard
-  // left/right traversal matches what the user sees.
+  // Column visibility is owned here (single source for rendering and
+  // keyboard traversal): empty columns hide unless the display option shows
+  // them (MLT-48).
   const boardColumns = useMemo(
-    () =>
-      groups.filter(
-        (group) => group.issues.length > 0 || !BOARD_HIDE_WHEN_EMPTY.has(group.category),
-      ),
-    [groups],
+    () => groups.filter((group) => group.issues.length > 0 || display.showEmptyColumns),
+    [groups, display.showEmptyColumns],
   );
 
   // Keyboard traversal follows the view the user actually sees: board columns
@@ -254,7 +257,7 @@ function MultilinearIndex() {
     <>
       {view === "board" ? (
         <BoardView
-          groups={groups}
+          groups={boardColumns}
           selectedId={selectedId}
           onSelect={onSelect}
           onOpen={onOpen}

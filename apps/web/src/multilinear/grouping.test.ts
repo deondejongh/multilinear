@@ -39,14 +39,32 @@ const fixtures = [
   }),
 ];
 
+const noFilters = { priorities: [], categories: [], labelIds: [] };
+
 describe("applyViewFilters", () => {
   it("empty selections mean all", () => {
-    expect(applyViewFilters(fixtures, { priorities: [], categories: [] })).toHaveLength(3);
+    expect(applyViewFilters(fixtures, noFilters)).toHaveLength(3);
   });
 
   it("filters compose across priority and category", () => {
-    const filtered = applyViewFilters(fixtures, { priorities: [3, 0], categories: ["ready"] });
+    const filtered = applyViewFilters(fixtures, {
+      ...noFilters,
+      priorities: [3, 0],
+      categories: ["ready"],
+    });
     expect(filtered.map((entry) => entry.id)).toEqual(["a", "c"]);
+  });
+
+  it("label filter matches issues carrying any selected label", () => {
+    const labelled = [
+      issue({ id: "x", labels: [{ id: "l1", spaceId: "space", name: "bug", color: "#ff0000" }] }),
+      issue({ id: "y" }),
+    ];
+    const filtered = applyViewFilters(labelled, {
+      ...noFilters,
+      labelIds: ["l1" as never],
+    });
+    expect(filtered.map((entry) => entry.id)).toEqual(["x"]);
   });
 });
 
@@ -61,6 +79,15 @@ describe("orderIssues", () => {
 
   it("created uses creation recency", () => {
     expect(orderIssues(fixtures, "created").map((entry) => entry.id)[0]).toBe("c");
+  });
+
+  it("ascending direction reverses the natural order", () => {
+    expect(orderIssues(fixtures, "updated", "asc").map((entry) => entry.id)).toEqual([
+      "c",
+      "b",
+      "a",
+    ]);
+    expect(orderIssues(fixtures, "priority", "asc").map((entry) => entry.id)[0]).toBe("c");
   });
 });
 

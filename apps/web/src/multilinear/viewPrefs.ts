@@ -4,15 +4,22 @@
  * Persisted to localStorage — the "per-user client persistence first" step
  * from the issue; named saved views and config files are later increments.
  */
-import type { Priority, StatusCategory } from "@multilinear/core/model";
+import type { LabelId, Priority, StatusCategory } from "@multilinear/core/model";
 
 export type IssueOrdering = "updated" | "created" | "priority";
+/** "desc" is each ordering's natural direction: newest / most urgent first. */
+export type OrderingDirection = "desc" | "asc";
 export type ListGrouping = "status" | "priority" | "none";
 
 export interface DisplayOptions {
   readonly ordering: IssueOrdering;
+  readonly orderingDirection: OrderingDirection;
   /** Grouping for the list view; the board always groups by status. */
   readonly listGrouping: ListGrouping;
+  /** Board: render status columns that hold no issues. */
+  readonly showEmptyColumns: boolean;
+  /** List: render groups that hold no issues. */
+  readonly showEmptyGroups: boolean;
   readonly showPriority: boolean;
   readonly showShortId: boolean;
   readonly showLabels: boolean;
@@ -21,7 +28,10 @@ export interface DisplayOptions {
 
 export const DEFAULT_DISPLAY_OPTIONS: DisplayOptions = {
   ordering: "updated",
+  orderingDirection: "desc",
   listGrouping: "status",
+  showEmptyColumns: false,
+  showEmptyGroups: false,
   showPriority: true,
   showShortId: true,
   showLabels: true,
@@ -33,9 +43,15 @@ export interface ViewFilterPrefs {
   readonly priorities: ReadonlyArray<Priority>;
   /** Empty = all categories. */
   readonly categories: ReadonlyArray<StatusCategory>;
+  /** Empty = all labels; otherwise issues carrying ANY selected label. */
+  readonly labelIds: ReadonlyArray<LabelId>;
 }
 
-export const DEFAULT_VIEW_FILTERS: ViewFilterPrefs = { priorities: [], categories: [] };
+export const DEFAULT_VIEW_FILTERS: ViewFilterPrefs = {
+  priorities: [],
+  categories: [],
+  labelIds: [],
+};
 
 export interface ViewPrefs {
   readonly view: "board" | "list";

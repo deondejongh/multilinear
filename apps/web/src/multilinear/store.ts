@@ -27,12 +27,12 @@ export type MultilinearView = "board" | "list";
 
 export interface MultilinearFilterState {
   spaceId: SpaceId | null;
-  labelId: LabelId | null;
   /** When true, only issues currently marked Agent Blocked. */
   agentBlocked: boolean;
   /** Client-side filters (MLT-48); empty selections mean "all". */
   priorities: ReadonlyArray<Priority>;
   categories: ReadonlyArray<StatusCategory>;
+  labelIds: ReadonlyArray<LabelId>;
 }
 
 interface MultilinearStore {
@@ -59,10 +59,10 @@ interface MultilinearStore {
 
   refresh: () => Promise<void>;
   setSpaceFilter: (spaceId: SpaceId | null) => void;
-  setLabelFilter: (labelId: LabelId | null) => void;
   setAgentBlockedFilter: (agentBlocked: boolean) => void;
   setPriorityFilter: (priorities: ReadonlyArray<Priority>) => void;
   setCategoryFilter: (categories: ReadonlyArray<StatusCategory>) => void;
+  setLabelsFilter: (labelIds: ReadonlyArray<LabelId>) => void;
   setDisplay: (display: Partial<DisplayOptions>) => void;
   setView: (view: MultilinearView) => void;
   clearError: () => void;
@@ -74,7 +74,6 @@ interface MultilinearStore {
 
 const issueFilter = (filter: MultilinearFilterState, category?: StatusCategory): IssueFilter => ({
   ...(filter.spaceId !== null ? { spaceId: filter.spaceId } : {}),
-  ...(filter.labelId !== null ? { labelId: filter.labelId } : {}),
   ...(filter.agentBlocked ? { agentBlocked: true } : {}),
   ...(category !== undefined ? { category } : {}),
 });
@@ -89,7 +88,11 @@ const persistPrefs = (state: Pick<MultilinearStore, "view" | "display" | "filter
   saveViewPrefs({
     view: state.view,
     display: state.display,
-    filters: { priorities: state.filter.priorities, categories: state.filter.categories },
+    filters: {
+      priorities: state.filter.priorities,
+      categories: state.filter.categories,
+      labelIds: state.filter.labelIds,
+    },
   });
 };
 
@@ -100,10 +103,10 @@ export const useMultilinearStore = create<MultilinearStore>((set, get) => ({
   triageIssues: [],
   filter: {
     spaceId: null,
-    labelId: null,
     agentBlocked: false,
     priorities: initialPrefs.filters.priorities,
     categories: initialPrefs.filters.categories,
+    labelIds: initialPrefs.filters.labelIds,
   },
   view: initialPrefs.view,
   display: initialPrefs.display,
@@ -137,12 +140,9 @@ export const useMultilinearStore = create<MultilinearStore>((set, get) => ({
   },
 
   setSpaceFilter: (spaceId) => {
-    set((state) => ({ filter: { ...state.filter, spaceId, labelId: null } }));
-    void get().refresh();
-  },
-
-  setLabelFilter: (labelId) => {
-    set((state) => ({ filter: { ...state.filter, labelId } }));
+    // Labels are per-space; a space switch invalidates the label selection.
+    set((state) => ({ filter: { ...state.filter, spaceId, labelIds: [] } }));
+    persistPrefs(get());
     void get().refresh();
   },
 
@@ -160,6 +160,11 @@ export const useMultilinearStore = create<MultilinearStore>((set, get) => ({
 
   setCategoryFilter: (categories) => {
     set((state) => ({ filter: { ...state.filter, categories } }));
+    persistPrefs(get());
+  },
+
+  setLabelsFilter: (labelIds) => {
+    set((state) => ({ filter: { ...state.filter, labelIds } }));
     persistPrefs(get());
   },
 

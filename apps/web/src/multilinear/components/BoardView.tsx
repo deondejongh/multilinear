@@ -1,9 +1,9 @@
 /**
  * Board view: one column per status category in canonical order, headed by the
- * default status name + count. The `duplicate` / `cancelled` columns are hidden
- * while empty to keep the strip tight. The board scrolls horizontally; each
- * column scrolls independently. Selection and keyboard movement are owned by
- * the index route and passed down.
+ * default status name + count. Column visibility (empty-column hiding) is
+ * owned by the index route (MLT-48 "Show empty columns"). The board scrolls
+ * horizontally; each column scrolls independently. Selection and keyboard
+ * movement are owned by the index route and passed down.
  *
  * Cards drag between columns with the pointer (MLT-49); a drop issues the
  * same `status.change` command as Shift+arrows, via `onDropIssue`. The
@@ -31,8 +31,6 @@ import { categoryIcon, categoryLabel } from "../presentation";
 import type { CategoryGroup } from "../grouping";
 import type { DisplayOptions } from "../viewPrefs";
 import { IssueCard } from "./IssueCard";
-
-const HIDE_WHEN_EMPTY = new Set(["duplicate", "cancelled"]);
 
 function DraggableCard({
   issue,
@@ -99,10 +97,6 @@ export function BoardView({
   onDropIssue: (issue: IssueSummary, target: StatusCategory) => void;
   display: DisplayOptions;
 }) {
-  const visible = groups.filter(
-    (group) => group.issues.length > 0 || !HIDE_WHEN_EMPTY.has(group.category),
-  );
-
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   const [draggingIssue, setDraggingIssue] = useState<IssueSummary | null>(null);
 
@@ -154,7 +148,7 @@ export function BoardView({
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <ScrollArea className="h-full" chainVerticalScroll>
           <div className="flex h-full min-h-0 gap-3 p-3">
-            {visible.map((group) => {
+            {groups.map((group) => {
               const Icon = categoryIcon(group.category);
               return (
                 <DroppableColumn key={group.category} group={group}>
@@ -190,7 +184,7 @@ export function BoardView({
                 </DroppableColumn>
               );
             })}
-            {visible.length === 0 ? (
+            {groups.length === 0 ? (
               <p className={cn("m-auto text-sm text-muted-foreground")}>No issues yet.</p>
             ) : null}
           </div>

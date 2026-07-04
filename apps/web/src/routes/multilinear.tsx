@@ -1,40 +1,27 @@
 import { createFileRoute, Outlet, redirect, useLocation } from "@tanstack/react-router";
-import { LayoutGridIcon, ListIcon, PauseCircleIcon, PlusIcon, XIcon } from "lucide-react";
+import { PauseCircleIcon, PlusIcon, XIcon } from "lucide-react";
 import { useEffect, useState } from "react";
-
-import type { LabelId } from "@multilinear/core/model";
 
 import { Alert, AlertAction, AlertDescription } from "~/components/ui/alert";
 import { Button } from "~/components/ui/button";
-import {
-  Select,
-  SelectItem,
-  SelectPopup,
-  SelectTrigger,
-  SelectValue,
-} from "~/components/ui/select";
 import { SidebarInset } from "~/components/ui/sidebar";
-import { ToggleGroup, ToggleGroupItem } from "~/components/ui/toggle-group";
 import { cn } from "~/lib/utils";
 import { subscribeLiveUpdates } from "../multilinear/liveUpdates";
-import { DisplayPopover, FilterPopover } from "../multilinear/components/ViewControls";
+import {
+  ActiveFilterChips,
+  DisplayPopover,
+  FilterMenu,
+} from "../multilinear/components/ViewControls";
 import { QuickCaptureDialog } from "../multilinear/components/QuickCaptureDialog";
 import { SpaceCreateDialog } from "../multilinear/components/SpaceCreateDialog";
 import { TrackerNav } from "../multilinear/components/TrackerNav";
 import { useMultilinearStore } from "../multilinear/store";
 import { useTrackerKeys } from "../multilinear/useTrackerKeys";
 
-const ALL_LABELS = "__all__";
-
 function MultilinearLayout() {
   const location = useLocation();
-  const labels = useMultilinearStore((state) => state.labels);
-  const labelId = useMultilinearStore((state) => state.filter.labelId);
-  const setLabelFilter = useMultilinearStore((state) => state.setLabelFilter);
   const agentBlocked = useMultilinearStore((state) => state.filter.agentBlocked);
   const setAgentBlockedFilter = useMultilinearStore((state) => state.setAgentBlockedFilter);
-  const view = useMultilinearStore((state) => state.view);
-  const setView = useMultilinearStore((state) => state.setView);
   const error = useMultilinearStore((state) => state.error);
   const clearError = useMultilinearStore((state) => state.clearError);
   const refresh = useMultilinearStore((state) => state.refresh);
@@ -58,7 +45,6 @@ function MultilinearLayout() {
   });
 
   const isIndex = location.pathname === "/multilinear";
-  const selectedLabel = labels.find((label) => label.id === labelId);
 
   return (
     <SidebarInset className="h-dvh min-h-0 overflow-hidden overscroll-y-none bg-background text-foreground isolate">
@@ -77,69 +63,8 @@ function MultilinearLayout() {
               Agent blocked
             </Button>
 
-            <Select
-              value={labelId ?? ALL_LABELS}
-              onValueChange={(next) =>
-                setLabelFilter(next === ALL_LABELS ? null : (next as LabelId))
-              }
-            >
-              <SelectTrigger
-                size="sm"
-                variant="ghost"
-                className="w-auto min-w-28"
-                aria-label="Label filter"
-              >
-                <SelectValue>
-                  {selectedLabel ? (
-                    <span className="flex items-center gap-1.5">
-                      <span
-                        className="size-2 rounded-full"
-                        style={{ backgroundColor: selectedLabel.color }}
-                      />
-                      {selectedLabel.name}
-                    </span>
-                  ) : (
-                    "All labels"
-                  )}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectPopup>
-                <SelectItem value={ALL_LABELS}>All labels</SelectItem>
-                {labels.map((label) => (
-                  <SelectItem key={label.id} value={label.id}>
-                    <span className="flex items-center gap-1.5">
-                      <span
-                        className="size-2 rounded-full"
-                        style={{ backgroundColor: label.color }}
-                      />
-                      {label.name}
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectPopup>
-            </Select>
-
-            {isIndex ? <FilterPopover /> : null}
+            {isIndex ? <FilterMenu /> : null}
             {isIndex ? <DisplayPopover /> : null}
-
-            {isIndex ? (
-              <ToggleGroup
-                variant="outline"
-                size="sm"
-                value={[view]}
-                onValueChange={(value) => {
-                  const next = value[0];
-                  if (next === "board" || next === "list") setView(next);
-                }}
-              >
-                <ToggleGroupItem value="board" aria-label="Board view">
-                  <LayoutGridIcon className="size-4" />
-                </ToggleGroupItem>
-                <ToggleGroupItem value="list" aria-label="List view">
-                  <ListIcon className="size-4" />
-                </ToggleGroupItem>
-              </ToggleGroup>
-            ) : null}
 
             <Button size="sm" onClick={() => setQuickCaptureOpen(true)}>
               <PlusIcon className="size-3.5" />
@@ -147,6 +72,7 @@ function MultilinearLayout() {
             </Button>
           </div>
         </header>
+        {isIndex ? <ActiveFilterChips /> : null}
 
         {error ? (
           <div className="px-3 pt-3">
