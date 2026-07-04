@@ -25,7 +25,7 @@ import { renderProofMarkdown } from "@multilinear/core/proof";
 import { ISSUE_TEMPLATE } from "@multilinear/core/ready-gate";
 
 import ChatMarkdown from "~/components/ChatMarkdown";
-import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
+import { Alert, AlertAction, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { Button } from "~/components/ui/button";
 import {
   Select,
@@ -273,14 +273,14 @@ export function IssueDetail({ issueId }: { issueId: IssueId }) {
               <AlertDescription>
                 Confirm to move this issue to the duplicate status, or reject to keep it as is.
               </AlertDescription>
-              <div className="mt-2.5 flex gap-1.5">
+              <AlertAction>
                 <Button size="sm" onClick={() => resolveDuplicate(true)}>
                   Confirm duplicate
                 </Button>
                 <Button variant="outline" size="sm" onClick={() => resolveDuplicate(false)}>
                   Reject
                 </Button>
-              </div>
+              </AlertAction>
             </Alert>
           ) : null}
 
