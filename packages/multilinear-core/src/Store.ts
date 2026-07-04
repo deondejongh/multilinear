@@ -52,7 +52,14 @@ import { readyGateLint } from "./ReadyGate.ts";
 import { describeFindings, scanPayloadForSecrets } from "./SecretScan.ts";
 import { describeAgentWhitelist, isAgentTransitionAllowed } from "./Transitions.ts";
 import { isUlid, makeUlidGenerator, type RandomFill } from "./Ulid.ts";
-import type { IssueDetail, IssueFilter, IssueSummary, ProofView, RelationView } from "./Views.ts";
+import type {
+  CostTotals,
+  IssueDetail,
+  IssueFilter,
+  IssueSummary,
+  ProofView,
+  RelationView,
+} from "./Views.ts";
 
 export {
   ImportRejectedError,
@@ -83,6 +90,7 @@ const PROJECTION_TABLES = [
   "relations",
   "run_links",
   "proofs",
+  "costs",
 ] as const;
 
 /**
@@ -92,7 +100,7 @@ const PROJECTION_TABLES = [
  * projection tables and replays the log. The `events` table never changes
  * shape.
  */
-const PROJECTION_SCHEMA_VERSION = 2;
+const PROJECTION_SCHEMA_VERSION = 3;
 
 const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS events (
@@ -190,6 +198,17 @@ CREATE TABLE IF NOT EXISTS proofs (
   created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_proofs_issue ON proofs(issue_id);
+CREATE TABLE IF NOT EXISTS costs (
+  event_id TEXT PRIMARY KEY,
+  issue_id TEXT NOT NULL,
+  tokens INTEGER,
+  currency_amount REAL,
+  note TEXT,
+  actor_kind TEXT NOT NULL,
+  actor_id TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_costs_issue ON costs(issue_id);
 `;
 
 const encodeEventJson = Schema.encodeEffect(Schema.fromJsonString(TrackerEvent));
@@ -672,7 +691,18 @@ const makeTrackerStore = Effect.fnUntraced(function* (config: TrackerStoreConfig
         return;
       }
       case "cost.recorded": {
-        // Feed-only for now (STATUS: Phase 2 decision) — no projection table.
+        runSql(
+          `INSERT INTO costs (event_id, issue_id, tokens, currency_amount, note, actor_kind, actor_id, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          event.id,
+          event.payload.issueId,
+          event.payload.tokens ?? null,
+          event.payload.currencyAmount ?? null,
+          event.payload.note ?? null,
+          event.actor.kind,
+          event.actor.id,
+          event.ts,
+        );
         return;
       }
     }
@@ -1452,6 +1482,17 @@ const makeTrackerStore = Effect.fnUntraced(function* (config: TrackerStoreConfig
         "SELECT * FROM proofs WHERE issue_id = ? ORDER BY created_at, id",
         issue.id,
       ).map(rowToProofView);
+      const costRow = get(
+        `SELECT COUNT(*) AS entries, COALESCE(SUM(tokens), 0) AS tokens,
+                COALESCE(SUM(currency_amount), 0) AS currency_amount
+         FROM costs WHERE issue_id = ?`,
+        issue.id,
+      );
+      const costs: CostTotals = {
+        entries: Number(costRow?.entries ?? 0),
+        tokens: Number(costRow?.tokens ?? 0),
+        currencyAmount: Number(costRow?.currency_amount ?? 0),
+      };
       return {
         issue,
         shortId: shortIdOf(space.key, issue.number),
@@ -1462,6 +1503,7 @@ const makeTrackerStore = Effect.fnUntraced(function* (config: TrackerStoreConfig
         relations,
         runLinks,
         proofs,
+        costs,
       } satisfies IssueDetail;
     });
   });

@@ -137,6 +137,19 @@ const RUN_LINK_ICONS: Readonly<Record<RunLinkKind, LucideIcon>> = {
 
 export const runLinkIcon = (kind: RunLinkKind): LucideIcon => RUN_LINK_ICONS[kind];
 
+/** "2,000 tokens · $0.42 · 3 entries" — the detail sidebar's cost line (MLT-53). */
+export const formatCostTotals = (costs: {
+  readonly entries: number;
+  readonly tokens: number;
+  readonly currencyAmount: number;
+}): string => {
+  const parts: string[] = [];
+  if (costs.tokens > 0) parts.push(`${costs.tokens.toLocaleString("en-US")} tokens`);
+  if (costs.currencyAmount > 0) parts.push(`$${costs.currencyAmount}`);
+  parts.push(`${costs.entries} ${costs.entries === 1 ? "entry" : "entries"}`);
+  return parts.join(" \u00b7 ");
+};
+
 /** A curated palette for new labels — no new theme colors, just hex swatches. */
 export const LABEL_COLOR_PRESETS: ReadonlyArray<string> = [
   "#5e6ad2",

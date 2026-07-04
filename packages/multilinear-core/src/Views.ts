@@ -69,6 +69,18 @@ export const RelationView = Schema.Struct({
 });
 export type RelationView = typeof RelationView.Type;
 
+/**
+ * Aggregate of `cost.recorded` events for one issue (MLT-53): the detail
+ * view shows totals without scanning the event log. Groundwork for Phase 3
+ * estimates-vs-actuals.
+ */
+export const CostTotals = Schema.Struct({
+  entries: Schema.Int,
+  tokens: Schema.Int,
+  currencyAmount: Schema.Number,
+});
+export type CostTotals = typeof CostTotals.Type;
+
 export const IssueDetail = Schema.Struct({
   issue: Issue,
   shortId: Schema.String,
@@ -79,6 +91,7 @@ export const IssueDetail = Schema.Struct({
   relations: Schema.Array(RelationView),
   runLinks: Schema.Array(RunLink),
   proofs: Schema.Array(ProofView),
+  costs: CostTotals,
 });
 export type IssueDetail = typeof IssueDetail.Type;
 

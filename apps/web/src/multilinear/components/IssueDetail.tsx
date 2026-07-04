@@ -40,7 +40,7 @@ import { Textarea } from "~/components/ui/textarea";
 import { toastManager } from "~/components/ui/toast";
 import { formatRelativeTimeLabel } from "~/timestampFormat";
 import { mlGetIssue, mlIssueActivity, mlListStatuses, newEntityId } from "../api";
-import { ISSUE_TYPE_OPTIONS, ISSUE_TYPE_LABELS } from "../presentation";
+import { formatCostTotals, ISSUE_TYPE_OPTIONS, ISSUE_TYPE_LABELS } from "../presentation";
 import { useMultilinearStore } from "../store";
 import { useStartAgentFromIssue } from "../useStartAgentFromIssue";
 import { ActivityFeed } from "./ActivityFeed";
@@ -504,6 +504,12 @@ export function IssueDetail({ issueRef }: { issueRef: string }) {
           <SidebarSection title="Run links">
             <RunLinksSection issueId={issueId} runLinks={detail.runLinks} onMutated={load} />
           </SidebarSection>
+
+          {detail.costs.entries > 0 && (
+            <SidebarSection title="Recorded cost">
+              <p className="text-xs text-muted-foreground">{formatCostTotals(detail.costs)}</p>
+            </SidebarSection>
+          )}
         </div>
       </aside>
 

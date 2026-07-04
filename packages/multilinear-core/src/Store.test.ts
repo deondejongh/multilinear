@@ -439,6 +439,38 @@ describe("TrackerStore", () => {
       ),
     );
 
+    it.effect("cost.recorded aggregates into detail totals without the log (MLT-53)", () =>
+      provided(
+        Effect.gen(function* () {
+          const fixture = yield* setup();
+          const issueId = yield* createIssue(fixture);
+          yield* fixture.store.execute(
+            { type: "cost.log", issueId, tokens: 1200, note: "planning" },
+            agent,
+          );
+          yield* fixture.store.execute(
+            { type: "cost.log", issueId, tokens: 800, currencyAmount: 0.42 },
+            agent,
+          );
+          const detail = yield* fixture.store.getIssue(issueId);
+          assert.deepStrictEqual(detail.costs, {
+            entries: 2,
+            tokens: 2000,
+            currencyAmount: 0.42,
+          });
+
+          // Rebuild replays the costs projection identically.
+          yield* fixture.store.rebuild();
+          const replayed = yield* fixture.store.getIssue(issueId);
+          assert.deepStrictEqual(replayed.costs, detail.costs);
+
+          const untouched = yield* createIssue(fixture, { title: "No cost" });
+          const empty = yield* fixture.store.getIssue(untouched);
+          assert.deepStrictEqual(empty.costs, { entries: 0, tokens: 0, currencyAmount: 0 });
+        }),
+      ),
+    );
+
     it.effect("triage filter finds issues across spaces", () =>
       provided(
         Effect.gen(function* () {
