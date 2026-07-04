@@ -62,6 +62,36 @@ _(agents list discovered work here until Phase 1's tracker can hold it)_
 
 ## Session log
 
+### 2026-07-04 — Quick-win batch between Phase 2 and Phase 3 (planning entry)
+
+**Verification at start (§0.2):** Prompt 3's timing gate is CLOSED — upstream
+PR #2829 (orchestration V2) is still an open draft (`state: OPEN, isDraft:
+true`, base `main`, head `t3code/codex-turn-mapping`; checked via `gh` this
+session). Per the human's explicit instruction, this session does NOT build
+Phase 3; instead it works a batch of unblocked quick wins from the tracker.
+
+**Slate (chosen from triage + backlog; all independent, none blocked):**
+
+1. MLT-55 — issue detail route accepts short-ids (core `resolveIssueId` exists)
+2. MLT-59 — `ml_list_issues` MCP read/filter tool over `TrackerStore.listIssues`
+3. MLT-52 — share one TrackerStore between HTTP routes and hosted MCP
+4. MLT-41 — tracker DB open failure degrades to 503, never kills server boot
+5. MLT-53 — `cost.recorded` projection (projection schema v3, drop-and-replay)
+6. MLT-56 — developer-instructions mount point steering sessions to `ml_*`
+7. MLT-49 — board drag-and-drop via @dnd-kit (drop = same `status.change`)
+8. MLT-46 — clickable run links (stretch; may not land)
+
+Skipped deliberately: MLT-40 (license — human decision), MLT-57 (needs a spec),
+MLT-50 (human said live with it first), MLT-48/MLT-60 (too large for this pass;
+MLT-60 wants Phase 3 dispatch machinery).
+
+**Method:** every fix goes through the tracker as an agent actor (claim →
+in_progress → proof → needs_review) via the core command surface — same
+enforcement path as MCP. One coherent commit per issue; `vp check` +
+typecheck + tests before each lands. Issues missing acceptance-criteria
+sections get them added (agent description edits are allowed; the ready gate
+checks content, not authorship). End: land the plane per §0.
+
 ### 2026-07-04 — Phase 2: agent hands (COMPLETE)
 
 **Done — acceptance checklist (03-PHASE-2):** all items pass.
