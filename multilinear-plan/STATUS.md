@@ -3,12 +3,12 @@
 > Agents: read this at session start; update it before session end (Working
 > Agreement §0). Humans: this is the project's single source of "where are we".
 
-**Last updated:** 2026-07-04 (planning + audit + naming — no code exists yet)
-**Current phase:** 0 (not started)
+**Last updated:** 2026-07-04 (Phase 0 complete — fork scaffolding + merge guard)
+**Current phase:** 0 done; next up Phase 1 (the board)
 
 ## Phase checklist
 
-- [ ] Phase 0 — fork scaffolding
+- [x] Phase 0 — fork scaffolding (2026-07-04, CI green)
 - [ ] Phase 1 — the board
 - [ ] Phase 2 — agent hands (MCP)
 - [ ] Phase 3 — policy brain (⛔ gated on upstream #2829 → main)
@@ -23,6 +23,10 @@
 | D3  | Data directory: `~/.multilinear/`. Outside upstream's state dirs.                                                                                                                                                                                                                                                                                                                                  | RESOLVED 2026-07-04                            |
 | D4  | Working branch: `multilinear-main`.                                                                                                                                                                                                                                                                                                                                                                | RESOLVED 2026-07-04                            |
 | D6  | MCP tool prefix `ml_` (e.g. `ml_list_ready`) for token economy — the server registers as `multilinear`, so namespacing disambiguates from machine-learning. CLI alias `ml`. Veto by find-replace if it reads badly in practice.                                                                                                                                                                    | RESOLVED 2026-07-04 (default — human may veto) |
+| D7  | 2026-07-04. `MOUNTPOINTS.md` seeded with the two pre-existing human edits to upstream files (AGENTS.md model-selection section, CLAUDE.md→AGENTS.md symlink) instead of starting empty as Prompt 0 said: the guard's job is merge safety and those edits are real conflict surface; it also exercises the checker with real rows from day one.                                                     | RESOLVED (agent)                               |
+| D8  | 2026-07-04. Merge-guard CI runs on `ubuntu-latest` (upstream's Blacksmith runners don't exist on a personal fork). "Build" = `vp check` + repo-wide `vpr typecheck` — upstream's own Check gate minus the desktop/Electron steps, which need Electron downloads and Blacksmith-scale runners. Revisit if a real bundle build becomes the better break-detector.                                    | RESOLVED (agent)                               |
+| D9  | 2026-07-04. Mount-point references: the Lines column takes `12`/`12-16` (line bound), a backtick-quoted anchor substring, or `—` (existence only). Anchors preferred — they survive upstream line drift.                                                                                                                                                                                           | RESOLVED (agent)                               |
+| D10 | 2026-07-04. Phase-0 tooling lives in `scripts/multilinear/` inside `@t3tools/scripts` so it's typechecked/linted/tested by the existing harness; the checker's unit tests are the placeholder test target until `packages/multilinear-core` (Phase 1).                                                                                                                                             | RESOLVED (agent)                               |
 | D5+ | (agents append decisions here with date + rationale)                                                                                                                                                                                                                                                                                                                                               | —                                              |
 
 ## Open questions
@@ -45,7 +49,7 @@ _(agents list discovered work here until Phase 1's tracker can hold it)_
 
 ## Session log
 
-### 2026-07-04 — Phase 0: fork scaffolding (in progress)
+### 2026-07-04 — Phase 0: fork scaffolding (COMPLETE)
 
 **Verification at start (§0.2):** `upstream` remote already points at
 `pingdotgg/t3code` and is fetched; local `main` == `upstream/main` exactly
@@ -79,6 +83,32 @@ our merge-guard workflow must use GitHub-hosted runners.
 
 Self-review against 01 §7: everything is new files — zero new mount points;
 no upstream migrations touched; additive only. ✓
+
+**Done (all six mission items):** 1–3 verified pre-existing (see above).
+4: `MOUNTPOINTS.md` created, seeded with the two pre-existing edits (D7).
+5: `scripts/multilinear/check-mountpoints.ts` + unit tests (pure parse/verify,
+Effect-idiomatic I/O — the repo's tsgo rules ban `node:fs`/`node:path`/plain
+`console`/untagged `Error`, so the checker uses `FileSystem`/`Path`/`Console`
+services and a `Schema.TaggedErrorClass`); failure path proven locally (stale
+entry → exit 1). `.github/workflows/multilinear-merge-guard.yml` runs install,
+`vp check`, `vpr typecheck`, scripts-package tests, and the mount-point check
+(D8). 6: `git merge upstream/main` → "Already up to date"; pushed; **CI green**
+(run 28707783742, all steps ✓). Local gate green: `vp check` 0 errors,
+`vp run typecheck` clean, 124/124 scripts tests pass.
+
+**Notes:** the plan pack markdown predated `vp check`'s formatting gate and was
+reformatted by `vp fmt` (formatting only, no content changes). A local
+`pnpm install` produced 540 lines of peer-resolution churn in `pnpm-lock.yaml`
+with no version changes — reverted, do not commit lockfile noise (upstream owns
+that file). The 27 `vp check` warnings are pre-existing upstream lint warnings.
+
+**Handoff:** Phase 0 is done; next session runs Prompt 1 (`PROMPTS.md`) against
+`multilinear-plan/02-PHASE-1-BOARD.md`. Practical notes for it: prefer
+backtick-quoted anchors over line numbers in MOUNTPOINTS.md (they survive
+upstream line drift); the merge-guard workflow already covers
+`upstream-merge/**` branches for the weekly merge cadence; when
+`packages/multilinear-core` exists, point the workflow's "Multilinear tests"
+step at it (currently `@t3tools/scripts`, which hosts the checker).
 
 ### 2026-07-04 — naming (chat, no code)
 
