@@ -22,6 +22,7 @@ Reference format for the **Lines** column, checked by
 | `CLAUDE.md`                 | —                                                         | Symlink to AGENTS.md so all agent harnesses share one instruction file                                                                  | 2026-07-04 |
 | `apps/server/package.json`  | `"@multilinear/core": "workspace:*"`                      | Workspace deps on our two packages (core + server) so the adapter can import them                                                       | 2026-07-04 |
 | `apps/server/src/server.ts` | `multilinearRouteLayer`                                   | Registers the `/api/multilinear` route layer (import + one entry in `makeRoutesLayer`)                                                  | 2026-07-04 |
+| `apps/web/package.json`     | `"@multilinear/core": "workspace:*"`                      | Workspace dep so the web UI can import tracker schemas and the API contract                                                             | 2026-07-04 |
 
 Generated files that change as a side effect of our additions (not mount
 points; regenerate rather than hand-merge on conflicts): `pnpm-lock.yaml`

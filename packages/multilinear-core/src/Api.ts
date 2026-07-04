@@ -12,6 +12,8 @@ import { StoredTrackerEvent, TrackerEvent } from "./Events.ts";
 import { IssueId, Label, Space, SpaceId, Status } from "./Model.ts";
 import { IssueDetail, IssueFilter, IssueSummary } from "./Views.ts";
 
+export { IssueFilter } from "./Views.ts";
+
 export const MULTILINEAR_API_PREFIX = "/api/multilinear";
 export const MULTILINEAR_COMMAND_PATH = `${MULTILINEAR_API_PREFIX}/command`;
 export const MULTILINEAR_QUERY_PATH = `${MULTILINEAR_API_PREFIX}/query`;

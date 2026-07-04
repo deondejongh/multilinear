@@ -19,6 +19,14 @@
       "types": "./src/Api.ts",
       "import": "./src/Api.ts"
     },
+    "./views": {
+      "types": "./src/Views.ts",
+      "import": "./src/Views.ts"
+    },
+    "./errors": {
+      "types": "./src/Errors.ts",
+      "import": "./src/Errors.ts"
+    },
     "./context-pack": {
       "types": "./src/ContextPack.ts",
       "import": "./src/ContextPack.ts"
