@@ -52,6 +52,17 @@ export class MlToolError extends Schema.TaggedErrorClass<MlToolError>()("MlToolE
   }
 }
 
+/**
+ * Build an MlToolError with a flattened stack: the MCP transport renders
+ * failures with `Cause.pretty`, which prefers `stack` — the calling agent
+ * should read the reason, not our internals.
+ */
+const mlToolError = (reason: string): MlToolError => {
+  const error = new MlToolError({ reason });
+  error.stack = `MlToolError: ${reason}`;
+  return error;
+};
+
 const dependencies = [TrackerStore, MultilinearMcpActor];
 
 // ── Wire schemas (snake_case: this is the public agent-facing surface) ─────
@@ -275,10 +286,10 @@ export const MultilinearToolkit = Toolkit.make(
 
 // ── Handlers ────────────────────────────────────────────────────────────────
 
-const fail = (reason: string) => Effect.fail(new MlToolError({ reason }));
+const fail = (reason: string) => Effect.fail(mlToolError(reason));
 
 const toToolError = <A, E extends { message: string }, R>(effect: Effect.Effect<A, E, R>) =>
-  effect.pipe(Effect.mapError((error) => new MlToolError({ reason: error.message })));
+  effect.pipe(Effect.mapError((error) => mlToolError(error.message)));
 
 const cardOf = (summary: IssueSummary) => ({
   id: summary.shortId,
@@ -476,7 +487,7 @@ export const MultilinearToolkitHandlersLive = MultilinearToolkit.toLayer(
                   ...(input.proof.cost.note === undefined ? {} : { note: input.proof.cost.note }),
                 },
               }),
-        }).pipe(Effect.mapError((error) => new MlToolError({ reason: String(error) })));
+        }).pipe(Effect.mapError((error) => mlToolError(String(error))));
         const proofId = (yield* nextId) as ProofId;
         yield* toToolError(
           store.execute({ type: "proof.attach", proofId, issueId, proof }, yield* actor),
