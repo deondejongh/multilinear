@@ -131,7 +131,7 @@ export function FilterMenu() {
           </Badge>
         ) : null}
       </PopoverTrigger>
-      <PopoverPopup align="end" className="w-64 p-2">
+      <PopoverPopup align="end" className="w-64" viewportClassName="p-2">
         <Input
           autoFocus
           placeholder="Filter…"
@@ -291,20 +291,13 @@ function PropertyPill({
   );
 }
 
-function SwitchRow({
-  label,
-  checked,
-  onCheckedChange,
-}: {
-  label: string;
-  checked: boolean;
-  onCheckedChange: (checked: boolean) => void;
-}) {
+/** Uniform settings row: muted label left, control right, fixed height. */
+function OptionRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label className="flex cursor-pointer items-center justify-between gap-2 px-1 text-[13px] text-foreground">
-      {label}
-      <Switch checked={checked} onCheckedChange={onCheckedChange} />
-    </label>
+    <div className="flex h-8 items-center justify-between gap-2">
+      <span className="text-[13px] text-muted-foreground">{label}</span>
+      {children}
+    </div>
   );
 }
 
@@ -323,105 +316,109 @@ export function DisplayPopover() {
         <Settings2Icon className="size-3.5" />
         Display
       </PopoverTrigger>
-      <PopoverPopup align="end" className="w-72 space-y-3 p-3">
-        <ToggleGroup
-          variant="outline"
-          size="sm"
-          className="grid w-full grid-cols-2"
-          value={[view]}
-          onValueChange={(value) => {
-            const next = value[0];
-            if (next === "board" || next === "list") setView(next);
-          }}
-        >
-          <ToggleGroupItem value="list" aria-label="List view">
-            <ListIcon className="size-4" />
-            List
-          </ToggleGroupItem>
-          <ToggleGroupItem value="board" aria-label="Board view">
-            <LayoutGridIcon className="size-4" />
-            Board
-          </ToggleGroupItem>
-        </ToggleGroup>
+      <PopoverPopup align="end" className="w-72" viewportClassName="p-0">
+        <div className="space-y-1 p-3">
+          <ToggleGroup
+            variant="outline"
+            size="sm"
+            className="mb-2 grid w-full grid-cols-2"
+            value={[view]}
+            onValueChange={(value) => {
+              const next = value[0];
+              if (next === "board" || next === "list") setView(next);
+            }}
+          >
+            <ToggleGroupItem value="list" aria-label="List view">
+              <ListIcon className="size-4" />
+              List
+            </ToggleGroupItem>
+            <ToggleGroupItem value="board" aria-label="Board view">
+              <LayoutGridIcon className="size-4" />
+              Board
+            </ToggleGroupItem>
+          </ToggleGroup>
 
-        {view === "list" ? (
-          <div className="flex items-center justify-between gap-2">
-            <span className="px-1 text-[13px] text-muted-foreground">Grouping</span>
-            <Select
-              value={display.listGrouping}
-              onValueChange={(next) => setDisplay({ listGrouping: next as ListGrouping })}
-            >
-              <SelectTrigger size="sm" className="w-36" aria-label="List grouping">
-                <SelectValue>{LIST_GROUPING_LABELS[display.listGrouping]}</SelectValue>
-              </SelectTrigger>
-              <SelectPopup>
-                {(Object.keys(LIST_GROUPING_LABELS) as ListGrouping[]).map((grouping) => (
-                  <SelectItem key={grouping} value={grouping}>
-                    {LIST_GROUPING_LABELS[grouping]}
-                  </SelectItem>
-                ))}
-              </SelectPopup>
-            </Select>
-          </div>
-        ) : null}
+          {view === "list" ? (
+            <OptionRow label="Grouping">
+              <Select
+                value={display.listGrouping}
+                onValueChange={(next) => setDisplay({ listGrouping: next as ListGrouping })}
+              >
+                <SelectTrigger size="sm" className="w-36" aria-label="List grouping">
+                  <SelectValue>{LIST_GROUPING_LABELS[display.listGrouping]}</SelectValue>
+                </SelectTrigger>
+                <SelectPopup>
+                  {(Object.keys(LIST_GROUPING_LABELS) as ListGrouping[]).map((grouping) => (
+                    <SelectItem key={grouping} value={grouping}>
+                      {LIST_GROUPING_LABELS[grouping]}
+                    </SelectItem>
+                  ))}
+                </SelectPopup>
+              </Select>
+            </OptionRow>
+          ) : null}
 
-        <div className="flex items-center justify-between gap-2">
-          <span className="px-1 text-[13px] text-muted-foreground">Ordering</span>
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label={directionLabel}
-              title={directionLabel}
-              onClick={() =>
-                setDisplay({
-                  orderingDirection: (display.orderingDirection === "desc"
-                    ? "asc"
-                    : "desc") as OrderingDirection,
-                })
-              }
-            >
-              {display.orderingDirection === "desc" ? (
-                <ArrowDownWideNarrowIcon className="size-3.5" />
-              ) : (
-                <ArrowUpNarrowWideIcon className="size-3.5" />
-              )}
-            </Button>
-            <Select
-              value={display.ordering}
-              onValueChange={(next) => setDisplay({ ordering: next as IssueOrdering })}
-            >
-              <SelectTrigger size="sm" className="w-36" aria-label="Ordering">
-                <SelectValue>{ORDERING_LABELS[display.ordering]}</SelectValue>
-              </SelectTrigger>
-              <SelectPopup>
-                {(Object.keys(ORDERING_LABELS) as IssueOrdering[]).map((ordering) => (
-                  <SelectItem key={ordering} value={ordering}>
-                    {ORDERING_LABELS[ordering]}
-                  </SelectItem>
-                ))}
-              </SelectPopup>
-            </Select>
-          </div>
+          <OptionRow label="Ordering">
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={directionLabel}
+                title={directionLabel}
+                onClick={() =>
+                  setDisplay({
+                    orderingDirection: (display.orderingDirection === "desc"
+                      ? "asc"
+                      : "desc") as OrderingDirection,
+                  })
+                }
+              >
+                {display.orderingDirection === "desc" ? (
+                  <ArrowDownWideNarrowIcon className="size-3.5" />
+                ) : (
+                  <ArrowUpNarrowWideIcon className="size-3.5" />
+                )}
+              </Button>
+              <Select
+                value={display.ordering}
+                onValueChange={(next) => setDisplay({ ordering: next as IssueOrdering })}
+              >
+                <SelectTrigger size="sm" className="w-36" aria-label="Ordering">
+                  <SelectValue>{ORDERING_LABELS[display.ordering]}</SelectValue>
+                </SelectTrigger>
+                <SelectPopup>
+                  {(Object.keys(ORDERING_LABELS) as IssueOrdering[]).map((ordering) => (
+                    <SelectItem key={ordering} value={ordering}>
+                      {ORDERING_LABELS[ordering]}
+                    </SelectItem>
+                  ))}
+                </SelectPopup>
+              </Select>
+            </div>
+          </OptionRow>
+
+          {view === "board" ? (
+            <OptionRow label="Show empty columns">
+              <Switch
+                checked={display.showEmptyColumns}
+                onCheckedChange={(showEmptyColumns) => setDisplay({ showEmptyColumns })}
+              />
+            </OptionRow>
+          ) : (
+            <OptionRow label="Show empty groups">
+              <Switch
+                checked={display.showEmptyGroups}
+                onCheckedChange={(showEmptyGroups) => setDisplay({ showEmptyGroups })}
+              />
+            </OptionRow>
+          )}
         </div>
 
-        {view === "board" ? (
-          <SwitchRow
-            label="Show empty columns"
-            checked={display.showEmptyColumns}
-            onCheckedChange={(showEmptyColumns) => setDisplay({ showEmptyColumns })}
-          />
-        ) : (
-          <SwitchRow
-            label="Show empty groups"
-            checked={display.showEmptyGroups}
-            onCheckedChange={(showEmptyGroups) => setDisplay({ showEmptyGroups })}
-          />
-        )}
-
-        <div className="space-y-1.5">
-          <SectionLabel>Display properties</SectionLabel>
-          <div className="flex flex-wrap gap-1.5 px-1">
+        <div className="border-t border-border p-3">
+          <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">
+            Display properties
+          </p>
+          <div className="flex flex-wrap gap-1.5">
             <PropertyPill
               label="Priority"
               active={display.showPriority}
@@ -445,11 +442,11 @@ export function DisplayPopover() {
           </div>
         </div>
 
-        <div className="border-t border-border pt-2">
+        <div className="border-t border-border p-1.5">
           <Button
             variant="ghost"
             size="sm"
-            className="w-full"
+            className="w-full text-muted-foreground"
             onClick={() => setDisplay(DEFAULT_DISPLAY_OPTIONS)}
           >
             Reset to defaults
