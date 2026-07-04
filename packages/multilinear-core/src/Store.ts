@@ -20,7 +20,12 @@ import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 
 import { CommandRejectedError, type TrackerCommand } from "./Commands.ts";
-import { ImportRejectedError, IssueNotFoundError, TrackerStorageError } from "./Errors.ts";
+import {
+  ImportRejectedError,
+  IssueNotFoundError,
+  TRACKER_UNAVAILABLE,
+  TrackerStorageError,
+} from "./Errors.ts";
 import { StoredTrackerEvent, TrackerEvent } from "./Events.ts";
 import {
   type Actor,
@@ -49,7 +54,12 @@ import { describeAgentWhitelist, isAgentTransitionAllowed } from "./Transitions.
 import { isUlid, makeUlidGenerator, type RandomFill } from "./Ulid.ts";
 import type { IssueDetail, IssueFilter, IssueSummary, ProofView, RelationView } from "./Views.ts";
 
-export { ImportRejectedError, IssueNotFoundError, TrackerStorageError } from "./Errors.ts";
+export {
+  ImportRejectedError,
+  IssueNotFoundError,
+  TRACKER_UNAVAILABLE,
+  TrackerStorageError,
+} from "./Errors.ts";
 
 export interface TrackerStoreConfig {
   /** Path to the SQLite file, or `:memory:` for tests. */
@@ -271,6 +281,33 @@ export class TrackerStore extends Context.Service<
   static readonly layerMemory: Layer.Layer<TrackerStore, TrackerStorageError> = Layer.suspend(() =>
     TrackerStore.layer({ dbPath: ":memory:" }),
   );
+
+  /**
+   * Degraded store for when the database cannot be opened: every operation
+   * fails with the sentinel {@link TRACKER_UNAVAILABLE} storage error
+   * wrapping the open failure. Hosts fall back to this so the tracker never
+   * takes them down with it (MLT-41) — the HTTP router maps the sentinel to
+   * 503, and MCP tools surface it as a readable error.
+   */
+  static readonly unavailable = (cause: unknown): TrackerStore["Service"] => {
+    const failure = Effect.fail(new TrackerStorageError({ operation: TRACKER_UNAVAILABLE, cause }));
+    return TrackerStore.of({
+      execute: () => failure,
+      listSpaces: () => failure,
+      listStatuses: () => failure,
+      listLabels: () => failure,
+      listIssues: () => failure,
+      listReadyIssues: () => failure,
+      resolveIssueId: () => failure,
+      getIssue: () => failure,
+      listIssueEvents: () => failure,
+      listAllEvents: () => failure,
+      rebuild: () => failure,
+      exportJsonl: () => failure,
+      importJsonl: () => failure,
+      dumpProjections: () => failure,
+    });
+  };
 }
 
 const defaultRandomFill: RandomFill = (bytes) => {

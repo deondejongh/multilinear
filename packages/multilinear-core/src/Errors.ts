@@ -4,6 +4,13 @@
  */
 import * as Schema from "effect/Schema";
 
+/**
+ * Sentinel `operation` on {@link TrackerStorageError} marking a store that
+ * could not be opened (degraded mode, MLT-41). The HTTP surface maps it to
+ * 503 Service Unavailable instead of 500.
+ */
+export const TRACKER_UNAVAILABLE = "unavailable";
+
 export class TrackerStorageError extends Schema.TaggedErrorClass<TrackerStorageError>()(
   "TrackerStorageError",
   {

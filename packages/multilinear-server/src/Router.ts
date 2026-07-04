@@ -30,7 +30,7 @@ import {
   TrackerQuery,
 } from "@multilinear/core/api";
 import type { Actor } from "@multilinear/core/model";
-import { IssueNotFoundError, TrackerStore } from "@multilinear/core/store";
+import { IssueNotFoundError, TRACKER_UNAVAILABLE, TrackerStore } from "@multilinear/core/store";
 
 import { ProfileLoader } from "./Profiles.ts";
 
@@ -75,6 +75,10 @@ const decodeQuery = Schema.decodeUnknownEffect(TrackerQuery);
 const respondError = HttpServerResponse.schemaJson(ErrorResponse);
 const respondCommand = HttpServerResponse.schemaJson(CommandResponse);
 
+/** A store that never opened (degraded mode, MLT-41) is a 503, not a 500. */
+const storageStatus = (error: { readonly operation: string }) =>
+  error.operation === TRACKER_UNAVAILABLE ? 503 : 500;
+
 const badRequest = (detail: string) =>
   Effect.succeed(
     HttpServerResponse.text(`Invalid multilinear request: ${detail}`, { status: 400 }),
@@ -90,7 +94,7 @@ export const handleCommand = Effect.fnUntraced(function* (body: unknown, actor: 
     Effect.flatMap((events) => respondCommand({ events })),
     Effect.catchTags({
       CommandRejectedError: (error) => respondError({ error }, { status: 422 }),
-      TrackerStorageError: (error) => respondError({ error }, { status: 500 }),
+      TrackerStorageError: (error) => respondError({ error }, { status: storageStatus(error) }),
     }),
   );
 });
@@ -152,7 +156,7 @@ export const handleQuery = Effect.fnUntraced(function* (body: unknown) {
   return yield* respond().pipe(
     Effect.catchTags({
       IssueNotFoundError: (error) => respondError({ error }, { status: 404 }),
-      TrackerStorageError: (error) => respondError({ error }, { status: 500 }),
+      TrackerStorageError: (error) => respondError({ error }, { status: storageStatus(error) }),
     }),
   );
 });

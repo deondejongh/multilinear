@@ -714,4 +714,24 @@ describe("TrackerStore", () => {
       ),
     );
   });
+
+  describe("degraded mode", () => {
+    it.effect("the unavailable store fails every operation with the sentinel", () =>
+      Effect.gen(function* () {
+        const store = TrackerStore.unavailable(new Error("disk on fire"));
+        const read = yield* store.listIssues({}).pipe(Effect.flip);
+        assert.strictEqual(read._tag, "TrackerStorageError");
+        assert.strictEqual(read.operation, "unavailable");
+
+        const write = yield* store
+          .execute(
+            { type: "comment.add", commentId: "x" as never, issueId: "y" as never, body: "hi" },
+            human,
+          )
+          .pipe(Effect.flip);
+        assert.strictEqual(write._tag, "TrackerStorageError");
+        assert.strictEqual((write as { operation?: string }).operation, "unavailable");
+      }),
+    );
+  });
 });

@@ -122,6 +122,30 @@ describe("multilinear router handlers", () => {
     ),
   );
 
+  it.effect("a store that failed to open answers 503, queries and commands alike", () =>
+    Effect.gen(function* () {
+      const ids = makeIds();
+      const query = yield* handleQuery({ type: "issues.list", filter: {} });
+      assert.strictEqual(query.status, 503);
+      const body = (yield* responseJson(query)) as { error: { _tag: string; operation: string } };
+      assert.strictEqual(body.error._tag, "TrackerStorageError");
+      assert.strictEqual(body.error.operation, "unavailable");
+
+      const command = yield* handleCommand(
+        { command: { type: "space.create", spaceId: ids.next(), name: "X", key: "XXX" } },
+        human,
+      );
+      assert.strictEqual(command.status, 503);
+    }).pipe(
+      Effect.provide(
+        Layer.mergeAll(
+          Layer.succeed(TrackerStore, TrackerStore.unavailable(new Error("disk on fire"))),
+          ProfileLoader.layerStatic([]),
+        ),
+      ),
+    ),
+  );
+
   it.effect("unknown issues come back as 404", () =>
     Effect.gen(function* () {
       const ids = makeIds();

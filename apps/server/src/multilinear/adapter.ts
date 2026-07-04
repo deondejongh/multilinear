@@ -14,8 +14,8 @@
  *   up from the server's cwd; `MULTILINEAR_PROFILES_DIR` overrides).
  *
  * Data lives at `~/.multilinear/tracker.db` (STATUS D3 — outside upstream's
- * state dirs). The routes and the MCP registration each hold a SQLite
- * connection; WAL makes that safe (the standalone stdio server is a third).
+ * state dirs). The routes and the MCP registration share one SQLite
+ * connection (MLT-52); WAL handles sharing with the standalone stdio server.
  */
 import * as NodeOS from "node:os";
 
@@ -25,6 +25,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
+import * as Scope from "effect/Scope";
 import { McpServer } from "effect/unstable/ai";
 import { HttpServerRequest } from "effect/unstable/http";
 
@@ -70,14 +71,42 @@ const resolveProfilesDir = Effect.fnUntraced(function* () {
   }
 });
 
-const trackerStoreLayer = Layer.unwrap(
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const dbPath = yield* resolveMultilinearDbPath();
-    yield* fileSystem.makeDirectory(path.dirname(dbPath), { recursive: true });
-    return TrackerStore.layer({ dbPath });
-  }),
+/**
+ * The tracker DB opens once per process (MLT-52): the routes layer and the
+ * hosted MCP registration are built in separate layer trees, so plain layer
+ * memoization can't deduplicate them — this cached effect can. The store
+ * lives in its own scope for the process lifetime; the OS reclaims the
+ * connection on exit.
+ */
+const openTrackerStoreOnce = Effect.runSync(
+  Effect.cached(
+    Effect.gen(function* () {
+      const fileSystem = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const dbPath = yield* resolveMultilinearDbPath();
+      yield* fileSystem.makeDirectory(path.dirname(dbPath), { recursive: true });
+      const scope = yield* Scope.make();
+      const services = yield* Scope.provide(Layer.build(TrackerStore.layer({ dbPath })), scope);
+      return Context.get(services, TrackerStore);
+    }),
+  ),
+);
+
+/**
+ * If the DB can't be opened, the tracker degrades instead of taking the
+ * coding tool down with it (MLT-41): boot proceeds with a store whose every
+ * operation fails with the `unavailable` sentinel — routes answer 503, MCP
+ * tools return the reason to the calling agent.
+ */
+const trackerStoreLayer = Layer.effect(
+  TrackerStore,
+  openTrackerStoreOnce.pipe(
+    Effect.catch((error) =>
+      Effect.logError("multilinear: tracker DB unavailable, serving degraded", {
+        cause: error,
+      }).pipe(Effect.as(TrackerStore.unavailable(error))),
+    ),
+  ),
 );
 
 const multilinearAuthLayer = Layer.effect(
