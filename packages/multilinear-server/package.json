@@ -6,6 +6,26 @@
     "./router": {
       "types": "./src/Router.ts",
       "import": "./src/Router.ts"
+    },
+    "./profiles": {
+      "types": "./src/Profiles.ts",
+      "import": "./src/Profiles.ts"
+    },
+    "./starter-profiles": {
+      "types": "./src/StarterProfiles.ts",
+      "import": "./src/StarterProfiles.ts"
+    },
+    "./mcp": {
+      "types": "./src/mcp/Toolkit.ts",
+      "import": "./src/mcp/Toolkit.ts"
+    },
+    "./mcp-stdio": {
+      "types": "./src/mcp/stdio.ts",
+      "import": "./src/mcp/stdio.ts"
+    },
+    "./db-path": {
+      "types": "./src/DbPath.ts",
+      "import": "./src/DbPath.ts"
     }
   },
   "scripts": {
@@ -15,7 +35,8 @@
   "dependencies": {
     "@effect/platform-node": "catalog:",
     "@multilinear/core": "workspace:*",
-    "effect": "catalog:"
+    "effect": "catalog:",
+    "yaml": "catalog:"
   },
   "devDependencies": {
     "@effect/vitest": "catalog:",

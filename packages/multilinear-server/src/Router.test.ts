@@ -1,5 +1,6 @@
 import { assert, describe, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 
 import type { Actor, IssueId, SpaceId } from "@multilinear/core/model";
@@ -7,6 +8,7 @@ import { CommandResponse, IssueGetResult, IssuesListResult } from "@multilinear/
 import { TrackerStore } from "@multilinear/core/store";
 import { makeUlidGenerator } from "@multilinear/core/ulid";
 
+import { ProfileLoader } from "./Profiles.ts";
 import { handleCommand, handleQuery } from "./Router.ts";
 
 const human: Actor = { kind: "human", id: "deon" };
@@ -72,7 +74,9 @@ describe("multilinear router handlers", () => {
       const detail = yield* handleQuery({ type: "issue.get", issueId });
       const decoded = yield* decodeIssueGet(yield* responseJson(detail));
       assert.strictEqual(decoded.detail.issue.title, "Wire it up");
-    }).pipe(Effect.provide(TrackerStore.layerMemory)),
+    }).pipe(
+      Effect.provide(Layer.mergeAll(TrackerStore.layerMemory, ProfileLoader.layerStatic([]))),
+    ),
   );
 
   it.effect("rejected commands come back as 422 with the tagged error", () =>
@@ -92,7 +96,9 @@ describe("multilinear router handlers", () => {
       assert.strictEqual(response.status, 422);
       const body = (yield* responseJson(response)) as { error: { _tag: string } };
       assert.strictEqual(body.error._tag, "CommandRejectedError");
-    }).pipe(Effect.provide(TrackerStore.layerMemory)),
+    }).pipe(
+      Effect.provide(Layer.mergeAll(TrackerStore.layerMemory, ProfileLoader.layerStatic([]))),
+    ),
   );
 
   it.effect("malformed command bodies fail with 400", () =>
@@ -102,7 +108,9 @@ describe("multilinear router handlers", () => {
       );
       assert.strictEqual(result._tag, "MultilinearHttpError");
       assert.isTrue(result._tag === "MultilinearHttpError" && result.status === 400);
-    }).pipe(Effect.provide(TrackerStore.layerMemory)),
+    }).pipe(
+      Effect.provide(Layer.mergeAll(TrackerStore.layerMemory, ProfileLoader.layerStatic([]))),
+    ),
   );
 
   it.effect("unknown issues come back as 404", () =>
@@ -110,6 +118,8 @@ describe("multilinear router handlers", () => {
       const ids = makeIds();
       const response = yield* handleQuery({ type: "issue.get", issueId: ids.next() });
       assert.strictEqual(response.status, 404);
-    }).pipe(Effect.provide(TrackerStore.layerMemory)),
+    }).pipe(
+      Effect.provide(Layer.mergeAll(TrackerStore.layerMemory, ProfileLoader.layerStatic([]))),
+    ),
   );
 });

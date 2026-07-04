@@ -20,15 +20,19 @@ import {
   IssueActivityResult,
   IssueGetResult,
   IssuesListResult,
+  IssuesReadyResult,
   LabelsListResult,
   MULTILINEAR_COMMAND_PATH,
   MULTILINEAR_QUERY_PATH,
+  ProfilesListResult,
   SpacesListResult,
   StatusesListResult,
   TrackerQuery,
 } from "@multilinear/core/api";
 import type { Actor } from "@multilinear/core/model";
 import { TrackerStore } from "@multilinear/core/store";
+
+import { ProfileLoader } from "./Profiles.ts";
 
 /** Access level required by an endpoint: queries read, commands operate. */
 export type MultilinearAccess = "read" | "operate";
@@ -94,6 +98,7 @@ export const handleCommand = Effect.fnUntraced(function* (body: unknown, actor: 
 /** Handle a decoded-from-JSON query body. Exported for direct testing. */
 export const handleQuery = Effect.fnUntraced(function* (body: unknown) {
   const store = yield* TrackerStore;
+  const profileLoader = yield* ProfileLoader;
   const query = yield* decodeQuery(body).pipe(
     Effect.mapError((error) => new MultilinearHttpError({ status: 400, body: String(error) })),
   );
@@ -124,6 +129,14 @@ export const handleQuery = Effect.fnUntraced(function* (body: unknown) {
         const entries = yield* store.listIssueEvents(query.issueId);
         return yield* HttpServerResponse.schemaJson(IssueActivityResult)({ entries });
       }
+      case "issues.ready": {
+        const issues = yield* store.listReadyIssues(query.spaceId);
+        return yield* HttpServerResponse.schemaJson(IssuesReadyResult)({ issues });
+      }
+      case "profiles.list": {
+        const snapshot = yield* profileLoader.current();
+        return yield* HttpServerResponse.schemaJson(ProfilesListResult)(snapshot);
+      }
     }
   });
 
@@ -141,7 +154,7 @@ type RouteHandler = (
 ) => Effect.Effect<
   HttpServerResponse.HttpServerResponse,
   MultilinearHttpError | HttpBody.HttpBodyError,
-  TrackerStore
+  TrackerStore | ProfileLoader
 >;
 
 const routeEffect = (access: MultilinearAccess, handle: RouteHandler) =>
@@ -168,7 +181,7 @@ const routeEffect = (access: MultilinearAccess, handle: RouteHandler) =>
  * their context in; the handlers are pre-provided here.
  */
 export const makeMultilinearRoutesLayer = (
-  services: Context.Context<TrackerStore | MultilinearAuth>,
+  services: Context.Context<TrackerStore | MultilinearAuth | ProfileLoader>,
 ): Layer.Layer<never, never, HttpRouter.HttpRouter> =>
   Layer.mergeAll(
     HttpRouter.add(
