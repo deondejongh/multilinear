@@ -9,6 +9,7 @@ orchestration. Genuinely useful on day one; the backlog moves into it (dogfoodin
 ## In scope
 
 ### A. `packages/multilinear-core`
+
 - Event log + projections per `01-ARCHITECTURE §3–4`: commands → validated events →
   SQLite append → projections. Include `rebuild` (replay events → projections) and
   `export`/`import` (JSONL event log) as CLI-callable functions.
@@ -20,11 +21,13 @@ orchestration. Genuinely useful on day one; the backlog moves into it (dogfoodin
   export→import round-trip.
 
 ### B. Server integration (`packages/multilinear-server` + mounts)
+
 - Expose tracker commands/queries to the web app. DISCOVER: smallest-mount option
   between their WS RPC registration pattern and a namespaced HTTP surface.
 - Mount points ≤4, all logged in `MOUNTPOINTS.md`.
 
 ### C. Web UI (`apps/web` — new files only)
+
 - `/multilinear` — board view grouped by status (columns follow category order), plus a
   list view; filter by space and label; keyboard-first (`c` = create issue, `enter`
   = open, arrows to move — mirror upstream's keybinding conventions).
@@ -37,6 +40,7 @@ orchestration. Genuinely useful on day one; the backlog moves into it (dogfoodin
 - Visual language: reuse upstream UI kit read-only; must look native.
 
 ### D. Context-pack button ("Start agent from issue")
+
 - Button on issue detail compiles a markdown **context pack**:
 
   ```
@@ -59,16 +63,19 @@ orchestration. Genuinely useful on day one; the backlog moves into it (dogfoodin
   either way (manual paste is fine this phase).
 
 ### E. Seeding (dogfood moment)
+
 - A `seed` script that imports `06-FUTURE-IDEAS.md` entries and the phase specs'
   open items as issues (spaces: `multilinear` for the project itself), so the project's
   backlog lives in the project from day one.
 
 ## Out of scope (do not build yet)
+
 MCP server; any dispatching; rules; schedules; GitHub sync; status/label
 customization UI; idea-issue special behavior (the `type` field exists, the
 behavior doesn't); mobile; multi-user anything.
 
 ## Acceptance criteria
+
 - [ ] Create/edit/move issues across all seeded statuses; comments; labels;
       priorities; all relation kinds including `discovered_from`.
 - [ ] Board, list, triage, and detail views work and feel native; keyboard-first

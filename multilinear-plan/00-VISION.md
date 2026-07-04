@@ -9,15 +9,15 @@ event is a permanent, queryable log on your own machine.
 
 Name: **multilinear** — tongue-in-cheek homage ("Linear, for many"), with a real
 mathematical meaning that happens to fit: a multilinear map is linear in each of
-several arguments separately — *linear in every agent*. Chosen knowingly for a
+several arguments separately — _linear in every agent_. Chosen knowingly for a
 personal OSS repo; rename-if-it-gains-traction is the standing plan (STATUS D1).
 
 ## The three-box model
 
 1. **Tracker (we build this):** the durable work graph. Issues, states, relations,
    comments, review gates, rules. The memory and the whiteboard.
-2. **Policy brain (we build this):** decides *what* gets dispatched, *when*, within
-   *which* caps and budgets, and routes outcomes back into issue state.
+2. **Policy brain (we build this):** decides _what_ gets dispatched, _when_, within
+   _which_ caps and budgets, and routes outcomes back into issue state.
 3. **Execution engine (t3code owns this — never rebuild it):** threads, runs,
    worktrees, providers, forks, subagents, scheduling. Upstream is investing heavily
    here (orchestration V2 + scheduled tasks); we delegate downward and ride it.
@@ -29,8 +29,8 @@ personal OSS repo; rename-if-it-gains-traction is the standing plan (STATUS D1).
 - **Event-sourced diary, not a whiteboard.** Never overwrite state; append events and
   project. This buys the activity feed, audit trail, rule triggers, back-testing, and
   (someday) multiplayer merging — all from one decision.
-- **Agents act, humans are accountable.** Issues are *assigned* to the human and
-  *delegated* to agent profiles (Linear's delegation taxonomy: "an agent cannot be
+- **Agents act, humans are accountable.** Issues are _assigned_ to the human and
+  _delegated_ to agent profiles (Linear's delegation taxonomy: "an agent cannot be
   held accountable"). Nothing enters Done without a human.
 - **Review capacity is the real bottleneck.** With agents, execution is cheap; the
   human's review throughput is the constraint. WIP limits protect it.
@@ -73,10 +73,10 @@ personal OSS repo; rename-if-it-gains-traction is the standing plan (STATUS D1).
   GitHub-centric, subscription-metered. We are the local-first, BYO-harness,
   your-machine complement. Watch their primitives; don't chase their features.
 - **Vibe Kanban** (closest sibling) sunset as a company and continues as community
-  OSS — the concept is validated, the *startup* isn't. This is a passion OSS project.
+  OSS — the concept is validated, the _startup_ isn't. This is a passion OSS project.
 - **Beads** (Yegge) is our data-model kin (agent-native, dependency-aware, git-backed).
   We steal: `discovered-from` provenance links, compaction ("memory decay"), and the
-  focus on *current* work.
+  focus on _current_ work.
 - **t3code upstream** is racing down the execution stack and shows zero movement on
   the planning/memory stack. Perfect complement. Tripwire: if upstream ever grows a
   persistent queue of assignable work items with states, re-evaluate (see Watchlist).

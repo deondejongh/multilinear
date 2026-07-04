@@ -10,7 +10,7 @@ choice in `STATUS.md → Decisions`.
 Upstream (`pingdotgg/t3code`) is early, fast-moving, and refactors aggressively.
 We build a granny flat in their garden, never renovate their kitchen.
 
-1. **Never edit upstream files** except at registered *mount points*. A mount point
+1. **Never edit upstream files** except at registered _mount points_. A mount point
    is a ≤5-line edit whose only job is to register something of ours (a route, a
    service, a nav item, an RPC handler). Every mount point is logged in
    `MOUNTPOINTS.md` at repo root: file, lines, purpose, date.
@@ -33,7 +33,7 @@ We build a granny flat in their garden, never renovate their kitchen.
 Considered and rejected: a standalone **sidecar app** driving t3code from outside —
 without a stable public plugin API it would scrape the same internals with worse
 ergonomics. Revisit only if upstream ships one. And the honest cost, stated once:
-this fork's carrying cost is the *merge*, not the build — budget recurring weekly
+this fork's carrying cost is the _merge_, not the build — budget recurring weekly
 time for it, forever.
 
 ## 2. Where code lives
@@ -74,7 +74,7 @@ type (`work` | `idea` | `spike` | `config`), estimates/actuals (later), origin
 (`local` | `github` | ...; external origin ⇒ lower trust tier), timestamps.
 
 **Status categories — load-bearing design (Linear's insight):** statuses are
-user-customizable *names*; every status belongs to one **fixed category** the
+user-customizable _names_; every status belongs to one **fixed category** the
 machine reasons over. Categories (fixed enum):
 `triage, backlog, ready, in_progress, needs_review, done, cancelled, duplicate`.
 Rules, the dispatcher, and analytics bind to **categories only**, never names —
@@ -108,20 +108,20 @@ feed, rule loop-guards, and back-testing. Sample event types: `issue.created`,
 - `multilinear export` → JSONL of the full event log; `multilinear import` restores it (CLI alias: `ml`).
   This is the exit hatch and the backup format. Document Litestream/Time Machine in
   user docs.
-- Per-repo config files (profiles, rules, workspace policy) live in the *user's*
+- Per-repo config files (profiles, rules, workspace policy) live in the _user's_
   repos under `.multilinear/` — versioned with their code, hot-reloaded (Symphony's
   WORKFLOW.md philosophy).
 
 ## 5. Vocabulary — avoid collisions with upstream words
 
-| Concept | Our word | Never call it | Why |
-|---|---|---|---|
-| Durable work item | **issue** / card | task | upstream "task" = thread / scheduled prompt |
-| Event-triggered rule | **rule** | automation | upstream ships "Automations" (= scheduled prompt tasks) |
-| Grouping of issues (maps to ≥1 repos) | **space** | project | upstream "project" = a repo folder |
-| Executor definition | **profile** | agent/assignee | assignee = the human; delegate = profile |
-| Link to an execution | **run link** | thread | threads are upstream's object |
-| Our dispatch layer | **policy brain** / dispatcher | orchestrator | upstream's orchestrator = execution engine V2 |
+| Concept                               | Our word                      | Never call it  | Why                                                     |
+| ------------------------------------- | ----------------------------- | -------------- | ------------------------------------------------------- |
+| Durable work item                     | **issue** / card              | task           | upstream "task" = thread / scheduled prompt             |
+| Event-triggered rule                  | **rule**                      | automation     | upstream ships "Automations" (= scheduled prompt tasks) |
+| Grouping of issues (maps to ≥1 repos) | **space**                     | project        | upstream "project" = a repo folder                      |
+| Executor definition                   | **profile**                   | agent/assignee | assignee = the human; delegate = profile                |
+| Link to an execution                  | **run link**                  | thread         | threads are upstream's object                           |
+| Our dispatch layer                    | **policy brain** / dispatcher | orchestrator   | upstream's orchestrator = execution engine V2           |
 
 ## 6. Upstream integration map (verified 2026-07-04 — re-verify each session)
 
@@ -136,9 +136,10 @@ feed, rule loop-guards, and back-testing. Sample event types: `issue.created`,
 - Nothing resembling an issue tracker exists upstream (code, `.plans/`, docs).
 
 Consequences:
+
 - **Dispatch through upstream, don't build it:** Phase 3 targets their orchestrator
   MCP tools / launch services via our adapter. Cron needs = their scheduled tasks
-  whose prompts call *our* MCP tools.
+  whose prompts call _our_ MCP tools.
 - **Timing gate:** Phase 3 wiring is **gated on #2829 landing in `main`**. Check at
   session start. If still unmerged and the human insists, develop against
   `codex-turn-mapping` knowingly (wet paint) and record it in STATUS.

@@ -17,7 +17,7 @@ each is independently shippable.
   `enabled: bool`. A thin UI editor may sit over these files; the files remain the
   source of truth. Every rule also gets a manual "run now" trigger in the UI.
 - Triggers: any event type from our log (status.changed, label.added,
-  comment.added, run.finished, github.* once §B lands…). Time-based triggers are
+  comment.added, run.finished, github.\* once §B lands…). Time-based triggers are
   NOT implemented here — cron needs are met by upstream scheduled tasks calling our
   MCP (Phase 3 pattern).
 - Actions: `transition`, `add_label`, `comment`, `create_issue`,
@@ -65,7 +65,7 @@ model here.
 ## C. Idea-issues
 
 - `type=idea` + delegate → opens a **discussion** session (profile `intent:
-  discuss`): no worktree, repo read-only or none, prompt = thinking partner. The
+discuss`): no worktree, repo read-only or none, prompt = thinking partner. The
   comment thread is the conversation and the memory (context pack = full thread,
   compacted).
 - **Promote** action: a planner profile drafts a spec into a `Doc` (markdown blob
@@ -91,10 +91,12 @@ doc/notification — finished overnight, waiting in `needs_review`, blocked/stal
 budget spent. Template in `docs/janitors/morning-briefing.md`.
 
 ## Out of scope
+
 Team anything, sync engines, calendar, local models, tournament, mentions
 (@profile in comments — parked in FUTURE-IDEAS), container sandboxing.
 
 ## Acceptance criteria
+
 - [ ] Rules: hot reload, causation loop-guard test, cooldown test, dry-run
       produces synthetic events, kill switch works.
 - [ ] Back-test command produces a correct report against seeded history (test

@@ -97,6 +97,7 @@ assigned(human)/delegated(profile) split. Do not build until real people beg.
    teams. Appends rarely conflict; timestamps break ties.
 3. **Stage 3 — the human stuff:** identity, review routing by area
    ("auth cards need Sam"), per-person budgets, a notifications inbox.
+
 - Posture, permanent: no seats, no RBAC, no SaaS. Small teams where agents
   outnumber humans. If it ever needs a sales team, we took a wrong turn.
 
@@ -105,26 +106,26 @@ assigned(human)/delegated(profile) split. Do not build until real people beg.
 - Upstream: #2829 merge; `codex-turn-mapping` branch; OrchestratorMcpService tool
   growth; scheduled-tasks evolution (thread-bound steering mode, base-branch
   limitation). **Tripwire:** upstream grows a persistent queue of assignable work
-  items *with states* → stop and re-derive the collision map before building more.
+  items _with states_ → stop and re-derive the collision map before building more.
 - Landscape: GitHub Agent HQ feature cadence; Vibe Kanban community fork; Beads /
   GasTown direction; Linear agent features.
 
 ## Inspiration atlas (condensed: name → steal this)
 
-| Source | Steal |
-|---|---|
-| Linear | status *categories*; Triage-as-inbox + triage rules; delegation ≠ assignment (human accountable); agent session states incl. awaiting-input; AIG (identity, instant feedback, transparency); agent guidance files |
-| Symphony (OpenAI) | claim/dispatch/reconcile loop; repo-owned WORKFLOW files; handoff states; continuation turns; proof-of-work framing; ship-as-spec |
-| Beads (Yegge) | `discovered_from` provenance; compaction/memory decay; "ready work" = unblocked; protocol-and-CLI with community UIs |
-| Home Assistant | blueprints (shareable automations); event bus; local-first community economics |
-| Temporal / Inngest / Trigger.dev | durable-execution vocabulary: retries, idempotency, wait-for-human steps |
-| Obsidian | files you own; plugin community; trust as the product; business model |
-| Things 3 / Raycast | capture speed; ⌘K-everything |
-| Graphite / CodeRabbit | review queue + mobile review; reviewer-agent gate |
-| git-bug / Fossil / Ink & Switch | issues-living-with-code prior art; local-first + malleable software philosophy |
-| Warp Oz / Agent HQ | live-session link on the card; "assign issue → PR" as the normalized grammar |
-| Vibe Kanban / Jean / Emdash / Conductor / Crystal | closest-sibling UX: board+workspaces, AI-assisted git commands, issue context loaded into every session — study before designing ours |
-| Omnara / Sculptor (+ upstream issue #525 "Spotlight mode") | sessions that just exist across phone/web/desktop; syncing agent worktree changes back into the live local checkout for testing |
-| n8n / Kiro hooks / GitHub Spec Kit | self-hosted visual workflow editing; event-driven agent hooks; spec-driven development discipline for the Ready gate |
-| Morgen / Motion / Reclaim | calendar-aware scheduling patterns for the chief-of-staff era |
-| Devin / Codex cloud | playbooks ≈ our profiles; cloud norms for agent automations and Slack/Linear surfaces |
+| Source                                                     | Steal                                                                                                                                                                                                             |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Linear                                                     | status _categories_; Triage-as-inbox + triage rules; delegation ≠ assignment (human accountable); agent session states incl. awaiting-input; AIG (identity, instant feedback, transparency); agent guidance files |
+| Symphony (OpenAI)                                          | claim/dispatch/reconcile loop; repo-owned WORKFLOW files; handoff states; continuation turns; proof-of-work framing; ship-as-spec                                                                                 |
+| Beads (Yegge)                                              | `discovered_from` provenance; compaction/memory decay; "ready work" = unblocked; protocol-and-CLI with community UIs                                                                                              |
+| Home Assistant                                             | blueprints (shareable automations); event bus; local-first community economics                                                                                                                                    |
+| Temporal / Inngest / Trigger.dev                           | durable-execution vocabulary: retries, idempotency, wait-for-human steps                                                                                                                                          |
+| Obsidian                                                   | files you own; plugin community; trust as the product; business model                                                                                                                                             |
+| Things 3 / Raycast                                         | capture speed; ⌘K-everything                                                                                                                                                                                      |
+| Graphite / CodeRabbit                                      | review queue + mobile review; reviewer-agent gate                                                                                                                                                                 |
+| git-bug / Fossil / Ink & Switch                            | issues-living-with-code prior art; local-first + malleable software philosophy                                                                                                                                    |
+| Warp Oz / Agent HQ                                         | live-session link on the card; "assign issue → PR" as the normalized grammar                                                                                                                                      |
+| Vibe Kanban / Jean / Emdash / Conductor / Crystal          | closest-sibling UX: board+workspaces, AI-assisted git commands, issue context loaded into every session — study before designing ours                                                                             |
+| Omnara / Sculptor (+ upstream issue #525 "Spotlight mode") | sessions that just exist across phone/web/desktop; syncing agent worktree changes back into the live local checkout for testing                                                                                   |
+| n8n / Kiro hooks / GitHub Spec Kit                         | self-hosted visual workflow editing; event-driven agent hooks; spec-driven development discipline for the Ready gate                                                                                              |
+| Morgen / Motion / Reclaim                                  | calendar-aware scheduling patterns for the chief-of-staff era                                                                                                                                                     |
+| Devin / Codex cloud                                        | playbooks ≈ our profiles; cloud norms for agent automations and Slack/Linear surfaces                                                                                                                             |

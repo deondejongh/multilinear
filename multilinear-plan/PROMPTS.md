@@ -12,6 +12,7 @@ below. Review the phase against its acceptance checklist before starting the nex
 You are building a long-lived project across many sessions. Follow this exactly.
 
 **Start of session**
+
 1. Read, in order: `multilinear-plan/README.md`, `multilinear-plan/STATUS.md`,
    `00-VISION.md`, `01-ARCHITECTURE.md`, and the phase spec named in your prompt.
 2. Verify time-sensitive facts your phase depends on (upstream PR states, branch
@@ -20,30 +21,21 @@ You are building a long-lived project across many sessions. Follow this exactly.
    points you expect to need) into a new session entry in `STATUS.md`. Self-review
    it against `01-ARCHITECTURE §7` invariants before writing code.
 
-**During**
-4. Work in small, coherent commits with conventional messages. Tests land with the
-   code they test, not at the end.
-5. Never edit upstream files except mount points; log each in `MOUNTPOINTS.md`
-   the moment you make it. If a task seems to need more than a mount point, stop
-   that task, write it to STATUS → Open questions, continue with other tasks.
-6. `DISCOVER:` markers in specs = your judgment. Decide, then record the decision
-   and rationale in STATUS → Decisions.
-7. Spec ambiguity that isn't marked DISCOVER: choose the most reversible
-   reasonable default, note it in STATUS, keep moving. Do not stall on questions.
-8. New dependencies: prefer what the monorepo already uses; record any addition
-   with rationale in STATUS.
-9. Follow-up work you discover: file it as an issue in the tracker with a
-   `discovered_from` relation (once the tracker exists — Phase 1+); before that,
-   list it in STATUS → Follow-ups.
+**During** 4. Work in small, coherent commits with conventional messages. Tests land with the
+code they test, not at the end. 5. Never edit upstream files except mount points; log each in `MOUNTPOINTS.md`
+the moment you make it. If a task seems to need more than a mount point, stop
+that task, write it to STATUS → Open questions, continue with other tasks. 6. `DISCOVER:` markers in specs = your judgment. Decide, then record the decision
+and rationale in STATUS → Decisions. 7. Spec ambiguity that isn't marked DISCOVER: choose the most reversible
+reasonable default, note it in STATUS, keep moving. Do not stall on questions. 8. New dependencies: prefer what the monorepo already uses; record any addition
+with rationale in STATUS. 9. Follow-up work you discover: file it as an issue in the tracker with a
+`discovered_from` relation (once the tracker exists — Phase 1+); before that,
+list it in STATUS → Follow-ups.
 
-**End of session — "land the plane" (mandatory, even if unfinished)**
-10. All tests green; build green; `git status` clean.
-11. Update `STATUS.md`: what's done vs not (against the acceptance checklist),
-    decisions made, open questions, and a **handoff paragraph** — the exact prompt
-    you'd give the next session to continue.
-12. Final commit. Stop conditions that trigger landing: acceptance criteria met;
-    blocked by an invariant; or context/steam running low — land early rather
-    than degrade.
+**End of session — "land the plane" (mandatory, even if unfinished)** 10. All tests green; build green; `git status` clean. 11. Update `STATUS.md`: what's done vs not (against the acceptance checklist),
+decisions made, open questions, and a **handoff paragraph** — the exact prompt
+you'd give the next session to continue. 12. Final commit. Stop conditions that trigger landing: acceptance criteria met;
+blocked by an invariant; or context/steam running low — land early rather
+than degrade.
 
 ---
 

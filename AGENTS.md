@@ -32,7 +32,7 @@ price. Intelligence is how hard a problem you can hand the model unsupervised. T
 covers UI/UX, code quality, API design, and copy.
 
 | model    | cost | intelligence | taste |
-|----------|------|--------------|-------|
+| -------- | ---- | ------------ | ----- |
 | gpt-5.5  | 9    | 8            | 5     |
 | sonnet-5 | 5    | 5            | 7     |
 | opus-4.8 | 4    | 7            | 8     |

@@ -2,10 +2,11 @@
 
 **Goal:** delegation becomes real. Move a card to `ready`, set a delegate profile,
 walk away; come back to it in `needs_review` with proof of work. We build the
-*decision* layer only — claiming, context, caps, budgets, reconciliation — and
+_decision_ layer only — claiming, context, caps, budgets, reconciliation — and
 dispatch downward through upstream's execution engine.
 
 ## ⛔ Timing gate (check FIRST, every session)
+
 This phase is **gated on upstream PR #2829 (orchestration V2) being merged to
 `main`** — it provides the dispatch surface (OrchestratorMcpService:
 `delegate_task`, `create_threads`; V2 thread/launch services) and moves state to
@@ -20,6 +21,7 @@ V1 engine is forbidden — it would be demolished by the cutover.
 ## In scope
 
 ### A. Dispatcher (in `multilinear-server`, via the adapter only)
+
 - Watches for issues that are: category `ready` + delegate set + no open blockers
   (event-driven off our own log; a slow poll fallback is acceptable).
 - **Claim:** atomic claimed-set in our DB (issue id + dispatch attempt) so nothing
@@ -34,9 +36,9 @@ V1 engine is forbidden — it would be demolished by the cutover.
 - **Upstream subagents/forks** inside a run are a black box we never manage:
   surface their lineage in the activity feed and attribute their cost to the issue.
 - **Completion loop — primary signal is the agent itself** (Symphony boundary: the
-  orchestrator schedules and reads; the *agent* writes to the tracker): the
+  orchestrator schedules and reads; the _agent_ writes to the tracker): the
   dispatched session ends by calling `ml_attach_proof` + `ml_transition
-  → needs_review`. The dispatcher's own duties are secondary signals:
+→ needs_review`. The dispatcher's own duties are secondary signals:
   - **Watchdog:** no events from a run for N minutes (configurable, default 30) →
     mark stalled, comment, notify.
   - **Reconciliation:** on every tick, if a dispatched issue left active categories
@@ -47,6 +49,7 @@ V1 engine is forbidden — it would be demolished by the cutover.
     `triage` with the error attached. Never retry more than once unattended.
 
 ### B. Caps and budgets (refuse-with-comment, never silently queue-jump)
+
 - Global WIP cap (default 2 concurrent dispatches) and per-space cap (default 1).
 - Daily dispatch budget (default 10/day) and, if upstream exposes usage, a token
   budget; else count dispatches. All configurable in a `~/.multilinear/config` file.
@@ -54,32 +57,38 @@ V1 engine is forbidden — it would be demolished by the cutover.
   claimed-pending, dispatch on next capacity. Surface caps state in the UI.
 
 ### C. Continuation
+
 Human reviews in `needs_review`: feedback comment + transition back to
-`in_progress` (human actor) → dispatcher sends a **continuation** into the *same*
+`in_progress` (human actor) → dispatcher sends a **continuation** into the _same_
 thread/worktree via the adapter (upstream V2 supports continuation/forks) with a
 feedback pack (the review comments since handoff). Same completion loop applies.
 
 ### D. DAG auto-flow
+
 When an issue closes, any issue it `blocks` that is otherwise ready becomes
 dispatchable automatically (event-driven). This makes planner-decomposed work
 self-sequencing.
 
 ### E. Estimates vs actuals (data only)
+
 Profiles instruct agents to state an effort/size estimate at claim time
 (`ml_comment` structured line); dispatcher records duration + cost at handoff.
 Stored as events; a tiny `/multilinear/insights` stub can list them. No fancy UI yet.
 
 ### F. First janitor (proves the schedules integration)
+
 Implemented as an **upstream scheduled task** whose prompt calls our MCP: weekly
 "upstream recon" — diff t3code's merged PRs/release notes against `MOUNTPOINTS.md`
 and `01-ARCHITECTURE §6`, file a `discovered_from`-less issue in the `multilinear`
 space when something drifts. (Spec the prompt in `docs/janitors/upstream-recon.md`.)
 
 ## Out of scope
+
 Event-triggered rules engine (Phase 4), GitHub sync, tournament mode (multiple
 delegates on one issue — backlog), idea-issue behavior, calendar.
 
 ## Acceptance criteria
+
 - [ ] E2E demo, documented + repeatable: `ready` + delegate → auto-dispatch into a
       worktree → agent completes → card in `needs_review` with proof; total human
       touches: 1 (the delegation) + 1 (the review).
