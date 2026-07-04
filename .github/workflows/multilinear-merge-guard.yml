@@ -1,0 +1,42 @@
+# Merge guard for the multilinear fork (multilinear-plan/01-ARCHITECTURE.md §1.5).
+# Runs on our long-lived branch and on upstream-merge branches so a broken
+# upstream merge fails loudly within minutes. Uses GitHub-hosted runners:
+# upstream's Blacksmith runners are not available on a personal fork.
+name: Multilinear Merge Guard
+
+on:
+  push:
+    branches:
+      - multilinear-main
+      - upstream-merge/**
+  workflow_dispatch:
+
+jobs:
+  merge-guard:
+    name: Merge Guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@v1
+        with:
+          node-version-file: package.json
+          cache: true
+          run-install: true
+
+      - name: Check
+        run: vp check
+
+      - name: Typecheck
+        run: vpr typecheck
+
+      # Placeholder test target until packages/multilinear-core exists (Phase 1):
+      # the scripts package hosts our mount-point checker and its tests.
+      - name: Multilinear tests
+        run: vp run --filter @t3tools/scripts test
+
+      - name: Verify mount points
+        run: node scripts/multilinear/check-mountpoints.ts
