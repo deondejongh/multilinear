@@ -100,10 +100,16 @@ export function BoardView({
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   const [draggingIssue, setDraggingIssue] = useState<IssueSummary | null>(null);
 
-  const handleDragStart = useCallback((event: DragStartEvent) => {
-    const issue = event.active.data.current?.issue as IssueSummary | undefined;
-    setDraggingIssue(issue ?? null);
-  }, []);
+  const handleDragStart = useCallback(
+    (event: DragStartEvent) => {
+      const issue = event.active.data.current?.issue as IssueSummary | undefined;
+      setDraggingIssue(issue ?? null);
+      // The dragged card becomes the selection, so the outline follows it
+      // into the target column and confirms where it landed (MLT-65).
+      if (issue) onSelect(issue);
+    },
+    [onSelect],
+  );
 
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
@@ -189,7 +195,10 @@ export function BoardView({
             ) : null}
           </div>
         </ScrollArea>
-        <DragOverlay>
+        {/* No drop animation: the default snap-back plays toward the source
+            column (the real card re-renders in the target only after the
+            command round-trip), which reads as the move failing (MLT-65). */}
+        <DragOverlay dropAnimation={null}>
           {draggingIssue ? (
             <div className="w-[272px] cursor-grabbing">
               <IssueCard
