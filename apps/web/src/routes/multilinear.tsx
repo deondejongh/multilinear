@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import { Alert, AlertAction, AlertDescription } from "~/components/ui/alert";
 import { Button } from "~/components/ui/button";
 import { SidebarInset } from "~/components/ui/sidebar";
-import { cn } from "~/lib/utils";
 import { subscribeLiveUpdates } from "../multilinear/liveUpdates";
 import {
   ActiveFilterChips,
@@ -14,7 +13,7 @@ import {
 } from "../multilinear/components/ViewControls";
 import { QuickCaptureDialog } from "../multilinear/components/QuickCaptureDialog";
 import { SpaceCreateDialog } from "../multilinear/components/SpaceCreateDialog";
-import { TrackerNav } from "../multilinear/components/TrackerNav";
+import { TrackerHeaderNav } from "../multilinear/components/TrackerHeaderNav";
 import { useMultilinearStore } from "../multilinear/store";
 import { useTrackerKeys } from "../multilinear/useTrackerKeys";
 
@@ -50,7 +49,7 @@ function MultilinearLayout() {
     <SidebarInset className="h-dvh min-h-0 overflow-hidden overscroll-y-none bg-background text-foreground isolate">
       <div className="flex h-full min-h-0 flex-col">
         <header className="flex min-h-11 shrink-0 items-center gap-2 border-b border-border px-3 py-2">
-          <span className="text-sm font-medium text-foreground">Issues</span>
+          <TrackerHeaderNav onNewSpace={() => setSpaceDialogOpen(true)} />
 
           <div className="ms-auto flex items-center gap-2">
             <Button
@@ -92,11 +91,8 @@ function MultilinearLayout() {
           </div>
         ) : null}
 
-        <div className={cn("flex min-h-0 flex-1")}>
-          <TrackerNav onNewSpace={() => setSpaceDialogOpen(true)} />
-          <div className="min-h-0 min-w-0 flex-1">
-            <Outlet />
-          </div>
+        <div className="min-h-0 min-w-0 flex-1">
+          <Outlet />
         </div>
       </div>
 
