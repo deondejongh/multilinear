@@ -3,7 +3,7 @@
 > Agents: read this at session start; update it before session end (Working
 > Agreement §0). Humans: this is the project's single source of "where are we".
 
-**Last updated:** 2026-07-05 (quick-win batch #2 — 5 more issues to needs_review)
+**Last updated:** 2026-07-05 (quick-win batch #2 + MLT-50 nav rework — 6 issues to needs_review)
 **Current phase:** 2 done; next up Phase 3 (policy brain — ⛔ still gated on upstream #2829)
 
 ## Phase checklist
@@ -112,20 +112,30 @@ tests green. Browser verification: all checks pass (contrast, filters/
 display/persistence, cross-process live updates, repos dialog after the
 fix, Start-agent routing).
 
-**For the human reviewer:** 5 issues sit in needs_review with proofs
-(MLT-47/48/51/63/64), on top of the 8 from batch #1 still awaiting review.
+**Addendum (same session):** the human asked for **MLT-50** too, its
+prerequisite (MLT-47 mapping) having just landed. Done via the issue's own
+middle path: the second nav column is gone; a compact header cluster
+(space switcher menu with Repositories…/New space + Issues/Triage tabs)
+replaces it. Zero new mount points; deep Sidebar.tsx integration stays
+rejected (churniest upstream file; spaces ≠ projects). Browser-verified:
+menu switching, repos dialog from the menu, tabs, triage badge, no console
+errors. Also: display-popover layout fixed after human review feedback
+(padding must go through PopoverPopup's `viewportClassName` — the popup
+element's own padding never reaches the rows).
+
+**For the human reviewer:** 6 issues sit in needs_review with proofs
+(MLT-47/48/50/51/63/64), on top of the 8 from batch #1 still awaiting review.
 Benign artifacts: a `human:repro` actor on MLT's `space.updated` event
 (the DB-healing run), a live-update test comment on MLT-48's thread, and
 an unsent draft in the multilinear project from the Start-agent check.
 
 **Handoff:** Phase 3 stays gated on upstream #2829 (still an open draft —
 re-verify at next session start). Remaining unblocked quick wins are
-thinning out: MLT-19 (wants desktop global hotkey), MLT-50 (nav rethink —
-human said live with it first), MLT-60 (triage agent — wants Phase 3
-dispatch), plus the parking-lot backlog. Next session: run Prompt 3's gate
-again; if still closed, consider MLT-50 (the human has now lived with the
-two-sidebar nav for a while) or start prepping Phase 3 designs that don't
-touch the V2 engine (MLT-53's estimates-vs-actuals groundwork is in).
+thinning out: MLT-19 (wants desktop global hotkey), MLT-60 (triage agent —
+wants Phase 3 dispatch), plus the parking-lot backlog. Next session: run
+Prompt 3's gate again; if still closed, work the review backlog with the
+human or start prepping Phase 3 designs that don't touch the V2 engine
+(MLT-53's estimates-vs-actuals groundwork is in).
 
 ### 2026-07-05 — Quick-win batch #2 (planning entry, superseded by COMPLETE above)
 
