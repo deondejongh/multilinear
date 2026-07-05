@@ -56,7 +56,10 @@ function MultilinearLayout() {
       <div className="flex h-full min-h-0 flex-col">
         <header
           className={cn(
-            "flex min-h-11 shrink-0 items-center gap-2 border-b border-border px-3 py-2 transition-[padding] duration-200 ease-linear",
+            // `.workspace-topbar` (upstream utility) fixes the height to the
+            // same strip the floating sidebar toggle centers in — otherwise
+            // the toggle and our controls sit on different centerlines.
+            "workspace-topbar gap-2 border-b border-border px-3 transition-[padding] duration-200 ease-linear",
             sidebarToggleFloats && "ps-[var(--workspace-titlebar-content-left)]",
           )}
         >
