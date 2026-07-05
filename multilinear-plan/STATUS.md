@@ -129,6 +129,11 @@ Benign artifacts: a `human:repro` actor on MLT's `space.updated` event
 (the DB-healing run), a live-update test comment on MLT-48's thread, and
 an unsent draft in the multilinear project from the Start-agent check.
 
+**Addendum (2026-07-05):** MLT-65 (human-reported drop-feedback fix on the
+new drag-and-drop: no snap-back ghost, dragged card becomes the selection)
+filed with `discovered_from` MLT-49, fixed, browser-verified, and moved to
+needs_review.
+
 **Handoff:** Phase 3 stays gated on upstream #2829 (still an open draft —
 re-verify at next session start). Remaining unblocked quick wins are
 thinning out: MLT-19 (wants desktop global hotkey), MLT-60 (triage agent —
