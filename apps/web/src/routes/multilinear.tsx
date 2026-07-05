@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 
 import { Alert, AlertAction, AlertDescription } from "~/components/ui/alert";
 import { Button } from "~/components/ui/button";
-import { SidebarInset } from "~/components/ui/sidebar";
+import { SidebarInset, useSidebar } from "~/components/ui/sidebar";
+import { cn } from "~/lib/utils";
 import { subscribeLiveUpdates } from "../multilinear/liveUpdates";
 import {
   ActiveFilterChips,
@@ -19,6 +20,11 @@ import { useTrackerKeys } from "../multilinear/useTrackerKeys";
 
 function MultilinearLayout() {
   const location = useLocation();
+  const { state: sidebarState, isMobile } = useSidebar();
+  // With the app sidebar collapsed (or on mobile), upstream's sidebar toggle
+  // floats fixed in the top-left — inset the header's leading cluster so the
+  // space switcher doesn't sit underneath it (MLT-50 review feedback).
+  const sidebarToggleFloats = isMobile || sidebarState === "collapsed";
   const agentBlocked = useMultilinearStore((state) => state.filter.agentBlocked);
   const setAgentBlockedFilter = useMultilinearStore((state) => state.setAgentBlockedFilter);
   const error = useMultilinearStore((state) => state.error);
@@ -48,7 +54,12 @@ function MultilinearLayout() {
   return (
     <SidebarInset className="h-dvh min-h-0 overflow-hidden overscroll-y-none bg-background text-foreground isolate">
       <div className="flex h-full min-h-0 flex-col">
-        <header className="flex min-h-11 shrink-0 items-center gap-2 border-b border-border px-3 py-2">
+        <header
+          className={cn(
+            "flex min-h-11 shrink-0 items-center gap-2 border-b border-border px-3 py-2 transition-[padding] duration-200 ease-linear",
+            sidebarToggleFloats && "ps-[var(--workspace-titlebar-content-left)]",
+          )}
+        >
           <TrackerHeaderNav onNewSpace={() => setSpaceDialogOpen(true)} />
 
           <div className="ms-auto flex items-center gap-2">
