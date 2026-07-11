@@ -3,7 +3,7 @@
 > Agents: read this at session start; update it before session end (Working
 > Agreement §0). Humans: this is the project's single source of "where are we".
 
-**Last updated:** 2026-07-05 (quick-win batch #2 + MLT-50 nav rework — 6 issues to needs_review)
+**Last updated:** 2026-07-11 (upstream sync: 26 commits merged conflict-free; #2829 watchlist refreshed — still gated)
 **Current phase:** 2 done; next up Phase 3 (policy brain — ⛔ still gated on upstream #2829)
 
 ## Phase checklist
@@ -54,15 +54,35 @@ _(agents list discovered work here until Phase 1's tracker can hold it)_
 
 ## Watchlist (verify before relying; update "last checked")
 
-| Item                                                                       | State at last check                                                                       | Last checked |
-| -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | ------------ |
-| Upstream PR #2829 (orchestration V2, `delegate_task`/`create_threads` MCP) | Open draft, branch `t3code/codex-turn-mapping`, ~92 commits                               | 2026-07-04   |
-| Upstream PR #3638 (scheduled tasks / "Automations")                        | Merged into `codex-turn-mapping` (NOT on main)                                            | 2026-07-04   |
-| Upstream main                                                              | No issue tracker anywhere (code, .plans, docs); "task" = thread; "project" = repo folder  | 2026-07-04   |
-| Tripwire                                                                   | Upstream persistent work-item queue _with states_ → halt, re-derive collision map (01 §6) | 2026-07-04   |
-| Landscape                                                                  | Agent HQ cadence; Vibe Kanban community fork; Beads/GasTown                               | 2026-07-04   |
+| Item                                                                       | State at last check                                                                                                                                                                                                      | Last checked |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------ |
+| Upstream PR #2829 (orchestration V2, `delegate_task`/`create_threads` MCP) | Open draft, 93 commits; maintainer idle since 07-02 (post-turn wakeup handling), only a main-sync 07-07 since; community testers active 07-10 (minor bugs, sub-agent-visibility work) — hardening phase, no merge signal | 2026-07-11   |
+| Upstream PR #3638 (scheduled tasks / "Automations")                        | Merged into `codex-turn-mapping` (NOT on main)                                                                                                                                                                           | 2026-07-11   |
+| Upstream main                                                              | Still no issue tracker; `apps/server/src/orchestration/` gained snapshot/projection-query plumbing (#3719) — read paths only, no work-item queue                                                                         | 2026-07-11   |
+| Tripwire                                                                   | Upstream persistent work-item queue _with states_ → halt, re-derive collision map (01 §6). Clear at 2026-07-11 merge                                                                                                     | 2026-07-11   |
+| Landscape                                                                  | Agent HQ cadence; Vibe Kanban community fork; Beads/GasTown                                                                                                                                                              | 2026-07-04   |
 
 ## Session log
+
+### 2026-07-11 — Upstream sync + gate check (COMPLETE)
+
+**Merge:** `upstream/main` (26 commits since last sync) merged into
+`multilinear-main` with **zero conflicts** — only shared file was
+`pnpm-lock.yaml`, auto-merged. Upstream's movement is mobile UI, Live
+Activity/relay (APNs), Clerk + Vite Plus upgrades, desktop release
+packaging, and T3 Connect onboarding; nothing near our surface. pnpm 11
+purged/rebuilt `node_modules` on install (workspace config changed).
+
+**Gate:** `vp check` 0 errors; repo typecheck clean; mount-point guard
+passed (8/8); 108 core+server + 10 web multilinear tests green.
+
+**Watchlist refresh (see table):** #2829 still an open draft — maintainer's
+last substantive work 07-01/02 (scheduled tasks merged in, post-turn wakeup
+handling), then only a main-sync; community testers showed up 07-10
+reporting minor bugs. Reads as hardening, not landing. **Phase 3 stays
+gated.** Tripwire clear: main's `orchestration/` changes (#3719) are
+snapshot read paths, not a work-item queue. Re-check ~2026-07-18 given the
+tester activity uptick.
 
 ### 2026-07-05 — Quick-win batch #2 (COMPLETE)
 
