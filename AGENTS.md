@@ -31,12 +31,12 @@ effectively free at current usage; Claude usage is the budget to protect), not l
 price. Intelligence is how hard a problem you can hand the model unsupervised. Taste
 covers UI/UX, code quality, API design, and copy.
 
-| model    | cost | intelligence | taste |
-| -------- | ---- | ------------ | ----- |
-| gpt-5.5  | 9    | 8            | 5     |
-| sonnet-5 | 5    | 5            | 7     |
-| opus-4.8 | 4    | 7            | 8     |
-| fable-5  | 2    | 9            | 9     |
+| model       | cost | intelligence | taste |
+| ----------- | ---- | ------------ | ----- |
+| gpt-5.6-sol | 9    | 8            | 5     |
+| sonnet-5    | 5    | 5            | 7     |
+| opus-4.8    | 4    | 7            | 8     |
+| fable-5     | 2    | 9            | 9     |
 
 How to apply:
 
@@ -47,22 +47,22 @@ How to apply:
 - Cost is a tie-breaker only; when axes conflict for anything that ships,
   intelligence > taste > cost.
 - Bulk/mechanical work with a clear spec (implementation against a written spec,
-  migrations, test scaffolding, data analysis): gpt-5.5 — it's effectively free.
+  migrations, test scaffolding, data analysis): gpt-5.6-sol — it's effectively free.
 - Anything user-facing (UI, copy, API and MCP tool design) needs taste ≥ 7.
-- Reviews of plans/implementations: fable-5 or opus-4.8, optionally gpt-5.5 as an
+- Reviews of plans/implementations: fable-5 or opus-4.8, optionally gpt-5.6-sol as an
   extra independent perspective.
-- Never use Haiku — with gpt-5.5 effectively free it has no niche here.
+- Never use Haiku — with gpt-5.6-sol effectively free it has no niche here.
 - Fable effort: `high` by default; `xhigh` only for architecture planning and final
   judge/review passes; never `max`.
 
 Division of labor (matters extra in this Effect-heavy monorepo):
 
 - Claude (fable/opus) defines the APIs, interfaces, schemas, and Effect module
-  skeletons. gpt-5.5 does not design public surfaces or contracts
+  skeletons. gpt-5.6-sol does not design public surfaces or contracts
   (`packages/contracts` especially) — it tends to write TypeScript like Python.
   Whatever the model, Effect code follows `.repos/effect-smol` idioms (see Vendored
   Repositories below).
-- gpt-5.5 executes well-spec'd implementation inside those skeletons, and is
+- gpt-5.6-sol executes well-spec'd implementation inside those skeletons, and is
   preferred for UI/UX verification and computer-use checks of the web app.
 - Token-hungry side work (computer use, codebase-wide analysis) runs in a subagent
   or Codex, reporting results back — never in the orchestrating session's context.
@@ -73,19 +73,21 @@ Division of labor (matters extra in this Effect-heavy monorepo):
 
 Mechanics:
 
-- gpt-5.5 is only reachable through the Codex CLI at
-  `/Applications/Codex.app/Contents/Resources/codex` (not on PATH; fall back to
+- gpt-5.6-sol is only reachable through the Codex CLI: `codex` is on PATH via
+  `/usr/local/bin/codex`, a symlink to
+  `/Applications/ChatGPT.app/Contents/Resources/codex` (fall back to
   `npx -y @openai/codex` if that binary is missing). `~/.codex/config.toml` already
-  defaults to gpt-5.5 at xhigh effort.
+  defaults to gpt-5.6-sol with `service_tier = "priority"` (fast) but only medium
+  effort — pin `-c model_reasoning_effort=high` on codex commands.
 - Codex prompts must be fully self-contained — it shares none of your context.
   Point it at files (e.g. the relevant `multilinear-plan/` spec section) instead of
   paraphrasing, and state acceptance criteria explicitly.
-- Investigation/data analysis: `codex exec -s read-only "<self-contained prompt>"`.
+- Investigation/data analysis: `codex exec -c model_reasoning_effort=high -s read-only "<self-contained prompt>"`.
   Implementation: `codex exec` with a self-contained prompt; always review its diff
   before committing.
 - Claude models (sonnet-5, opus-4.8, fable-5) run via the Agent/Workflow `model`
   parameter.
-- Using gpt-5.5 inside workflows and subagents (the `model` parameter only takes
+- Using gpt-5.6-sol inside workflows and subagents (the `model` parameter only takes
   Claude models): spawn a thin Claude wrapper agent with `model: 'sonnet'`, low
   effort, whose prompt instructs it to write a self-contained codex prompt, run
   `codex exec` via Bash, and return the result verbatim.
